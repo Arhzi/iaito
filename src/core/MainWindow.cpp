@@ -2,18 +2,13 @@
 #include "ui_MainWindow.h"
 
 // Common Headers
-#include "common/AnalTask.h"
 #include "common/BugReporting.h"
-#include "common/Highlighter.h"
 #include "common/Helpers.h"
-#include "common/SvgIconEngine.h"
 #include "common/ProgressIndicator.h"
 #include "common/TempConfig.h"
 #include "common/RunScriptTask.h"
-#include "common/PythonManager.h"
 #include "plugins/IaitoPlugin.h"
 #include "plugins/PluginManager.h"
-#include "IaitoConfig.h"
 #include "IaitoApplication.h"
 
 // Dialogs
@@ -33,7 +28,6 @@
 #include "widgets/GraphView.h"
 #include "widgets/GraphWidget.h"
 #include "widgets/OverviewWidget.h"
-#include "widgets/OverviewView.h"
 #include "widgets/FunctionsWidget.h"
 #include "widgets/SectionsWidget.h"
 #include "widgets/SegmentsWidget.h"
@@ -69,7 +63,6 @@
 #include "widgets/BacktraceWidget.h"
 #include "widgets/HexdumpWidget.h"
 #include "widgets/DecompilerWidget.h"
-#include "widgets/HexWidget.h"
 #include "widgets/R2GraphWidget.h"
 #include "widgets/CallGraph.h"
 
@@ -266,7 +259,7 @@ void MainWindow::initUI()
     readSettings();
 
     // Display tooltip for the Analyze Program action
-    ui->actionAnalyze->setToolTip("Analyze the program using radare2's \"aaa\" command");
+    ui->actionAnalyze->setToolTip("Analyze the program");
     ui->menuFile->setToolTipsVisible(true);
 }
 
@@ -667,6 +660,7 @@ void MainWindow::finalizeOpen()
             // continue looping in case there is a graph widget
         }
     }
+    consoleDock->show();
 }
 
 bool MainWindow::saveProject(bool quit)
@@ -674,14 +668,21 @@ bool MainWindow::saveProject(bool quit)
     QString projectName = core->getConfig("prj.name");
     if (projectName.isEmpty()) {
         return saveProjectAs(quit);
-    } else {
-        core->saveProject(projectName);
-        return true;
     }
+    if (core->getConfigb("cfg.debug")) {
+        QMessageBox::warning(this, tr("Error"), tr("You can't save a project while debugging"));
+	return false;
+    }
+    core->saveProject(projectName);
+    return true;
 }
 
 bool MainWindow::saveProjectAs(bool quit)
 {
+    if (core->getConfigb("cfg.debug")) {
+        QMessageBox::warning(this, tr("Error"), tr("You can't save a project while debugging"));
+	return false;
+    }
     SaveProjectDialog dialog(quit, this);
     return SaveProjectDialog::Rejected != dialog.exec();
 }
@@ -1597,7 +1598,7 @@ void MainWindow::on_actionIssue_triggered()
 
 void MainWindow::documentationClicked()
 {
-    QDesktopServices::openUrl(QUrl("https://cutter.re/docs/user-docs"));
+    QDesktopServices::openUrl(QUrl("https://www.radare.org"));
 }
 
 void MainWindow::on_actionRefresh_Panels_triggered()
@@ -1610,10 +1611,12 @@ void MainWindow::on_actionRefresh_Panels_triggered()
  */
 void MainWindow::on_actionAnalyze_triggered()
 {
-    auto *analTask = new AnalTask();
+#if MONOTHREAD
+    R_LOG_ERROR ("monothread for auto-reanalysis disabled");
+#else
     InitialOptions options;
     options.analCmd = { {"aaa", "Auto analysis"} };
-    analTask->setOptions(options);
+    auto *analTask = new AnalTask();
     AsyncTask::Ptr analTaskPtr(analTask);
 
     auto *taskDialog = new AsyncTaskDialog(analTaskPtr);
@@ -1623,6 +1626,7 @@ void MainWindow::on_actionAnalyze_triggered()
     connect(analTask, &AnalTask::finished, this, &MainWindow::refreshAll);
 
     Core()->getAsyncTaskManager()->start(analTaskPtr);
+#endif
 }
 
 void MainWindow::on_actionImportPDB_triggered()

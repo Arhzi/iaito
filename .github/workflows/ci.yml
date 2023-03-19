@@ -1,7 +1,7 @@
 name: iaito CI
 
 env:
-  R2V: 5.7.2
+  R2V: 5.8.4
 
 on:
   push:
@@ -15,11 +15,11 @@ jobs:
   acr-linux-r2git:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        submodules: true # 'recursive' 'true' or 'false'
+        submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
-    - uses: actions/setup-python@v1
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.8.x
     - name: apt dependencies
@@ -37,16 +37,16 @@ jobs:
     - name: packaging
       run: |
         make -j -C dist/debian
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: iaito-amd64.deb
         path: dist/debian/*/*.deb
   acr-linux:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        submodules: true # 'recursive' 'true' or 'false'
+        submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
     - uses: actions/setup-python@v1
       with:
@@ -69,16 +69,16 @@ jobs:
     - name: packaging
       run: |
         make -C dist/debian
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: iaito-amd64.deb
         path: dist/debian/*/*.deb
   acr-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        submodules: true # 'recursive' 'true' or 'false'
+        submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
     - uses: actions/setup-python@v1
       with:
@@ -86,13 +86,14 @@ jobs:
     - name: homebrew dependencies
       run: |
         brew update
-        brew install coreutils pkg-config qt@5
+        brew install pkg-config qt@5
         brew unlink qt@5 || true
         brew link --force qt@5
         pip3 install meson
+        pip3 install ninja
     - name: install r2
       run: |
-        wget -q https://github.com/radareorg/radare2/releases/download/${{env.R2V}}/radare2-${{env.R2V}}.pkg
+        wget -q https://github.com/radareorg/radare2/releases/download/${{env.R2V}}/radare2-x64-${{env.R2V}}.pkg
         sudo installer -pkg *.pkg -target /
     - name: build iaito
       run: |
@@ -106,7 +107,7 @@ jobs:
     - name: packaging
       run: |
         make -C dist/macos
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: iaito-mac-amd64.zip
         path: dist/macos/iaito*.zip
@@ -114,7 +115,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04, macos-latest]
+        os: [ubuntu-22.04, ubuntu-20.04]
         python-version: [3.8.x]
         system-deps: [true]
         cc-override: [default]
@@ -122,9 +123,9 @@ jobs:
       # Prevent one job from pausing the rest
       fail-fast: false
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        submodules: true # 'recursive' 'true' or 'false'
+        submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
     - name: apt dependencies
       if: contains(matrix.os, 'ubuntu')
@@ -142,33 +143,30 @@ jobs:
     - name: homebrew dependencies
       if: contains(matrix.os, 'macos')
       run: |
-        cd scripts
         brew update --preinstall # temporary workaround for https://github.com/Homebrew/homebrew-bundle/issues/751
-        brew bundle
-        brew install coreutils
-        brew install pkg-config
-    - name: py dependencies
+        brew install coreutils pkg-config
+        brew install pkg-config qt@5
+        brew unlink qt@5 || true
+        brew link --force qt@5
+        pip3 install meson
+        pip3 install ninja
+    - name: macos build
+      if: contains(matrix.os, 'macos')
       run: |
-        pip install meson
+        cd src && meson ../build
+        cd ../build && ninja -j4
     - name: meson+ninja ubuntu
       if: contains(matrix.os, 'ubuntu')
       run: |
-        set -euo pipefail #TODO: move to top once iaito-deps doesn't fail
-        if [[ "${{ matrix.cc-override }}" != "default" ]]
-        then
-          export CC="${{matrix.cc-override}}"
-          export CXX="${{matrix.cxx-override}}"
-        fi
-        cd src
-        meson ../build
-        cd ../build
-        ninja -j4
+        pip install meson
+        cd src && meson ../build
+        cd ../build && ninja -j4
   w64-meson:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        submodules: true # 'recursive' 'true' or 'false'
+        submodules: false
         persist-credentials: false
     - name: Preparing msvc toolchain
       uses: ilammy/msvc-dev-cmd@v1
@@ -184,12 +182,12 @@ jobs:
 #        curl -vLo qt-unified-windows-x86-online.exe http://download.qt.io/official_releases/online_installers/qt-unified-windows-x86-online.exe
 #        qt-unified-windows-x86-online.exe --verbose --script ..\ci\qt.qs
     - name: Install Qt
-      uses: jurplel/install-qt-action@v2
+      uses: jurplel/install-qt-action@v3
     - name: dependencies
       shell: cmd
       run: |
         pip install ninja meson wget
-        choco install zip 
+        choco install zip
 #    - name: install r2
 #      shell: bash
 #      run: |
@@ -201,18 +199,103 @@ jobs:
       shell: cmd
       run: |
         SET ARCH=x64
-        set IAITO_DEPS=%CD%\iaito-deps
-        set PATH=%CD%\iaito-deps\qt\bin;%CD%\r2_dist\bin;%PATH%
-        pip install meson ninja wget
+        set PATH=%CD%\r2_dist\bin;%PATH%
         call preconfigure.bat
         call configure.bat
         call make.bat
+        zip -r iaito.zip iaito
         dir /s
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: iaito.exe
         path: iaito\iaito.exe
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
+      with:
+        name: iaito.zip
+        path: iaito.zip
+    - uses: actions/upload-artifact@v3
       with:
         name: ${{ env.PACKAGE_NAME }}
         path: build/${{ env.PACKAGE_NAME }}
+
+  check_release:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    outputs:
+      is_release: ${{ steps.release.outputs.is }}
+      tag_name: ${{ steps.release.outputs.tag }}
+    needs:
+      - acr-linux
+      - acr-macos
+      - w64-meson
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Download all git history and tags
+      - name: Check if is a release
+        run: git describe --exact-match --tags ${{ github.sha }} | awk 'BEGIN{tag="-";r="no"}/^[0-9]+\.[0-9]+/{tag=$0;r="yes"};END{print "is="r;print "tag="tag}' >> ${GITHUB_OUTPUT}
+        id: release
+  release:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.check_release.outputs.is_release == 'yes' }}
+    needs:
+      - check_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Download all git history and tags
+      - name: Extract version
+        run: echo "branch=`./configure -qV`" >> $GITHUB_OUTPUT
+        id: version
+      - name: Prepare release notes
+        run: echo Release > ./RELEASE_NOTES.md
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: dist/artifacts
+      - name: Create GitHub release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.check_release.outputs.tag_name }}
+          release_name: ${{ steps.version.outputs.branch }}
+          body_path: ./RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+  publish:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.check_release.outputs.is_release == 'yes' }}
+    needs:
+      - release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload Linux asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artifacts/linux-acr/iaito-amd64.deb
+          asset_name: iaito_${{ steps.version.outputs.branch }}_amd64.deb
+          asset_content_type: application/vnd.debian.binary-package
+      - name: Upload macOS asset (BROKEN)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artifacts/acr-macos/iaito-${{ steps.version.outputs.branch }}-macos.zip
+          asset_name: iaito-${{ steps.version.outputs.branch }}-macos.zip
+          asset_content_type: application/zip
+      - name: Upload Windows asset (BROKEN)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artifacts/w64-meson/iaito-${{ steps.version.outputs.branch }}-w64.zip
+          asset_name: iaito-${{ steps.version.outputs.branch }}-w64.zip
+          asset_content_type: application/zip

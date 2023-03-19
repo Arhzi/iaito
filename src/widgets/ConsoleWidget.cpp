@@ -76,7 +76,7 @@ ConsoleWidget::ConsoleWidget(MainWindow *main) :
     addAction(actionClear);
 
     // Ctrl+l to clear the output
-    actionClear->setShortcut(Qt::CTRL + Qt::Key_L);
+    actionClear->setShortcut(Qt::CTRL | Qt::Key_L);
     actionClear->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     actions.append(actionClear);
 
@@ -226,6 +226,18 @@ void ConsoleWidget::executeCommand(const QString &command)
     addOutput(cmd_line);
 
     RVA oldOffset = Core()->getOffset();
+#if MONOTHREAD
+    QString result = Core()->cmdHtml(command.toStdString().c_str());
+    if (oldOffset != Core()->getOffset()) {
+        Core()->updateSeek();
+    }
+    ui->outputTextEdit->appendHtml(result);
+    scrollOutputToEnd();
+    historyAdd(command);
+    commandTask.clear();
+    ui->r2InputLineEdit->setEnabled(true);
+    ui->r2InputLineEdit->setFocus();
+#else
     commandTask = QSharedPointer<CommandTask>(new CommandTask(command, CommandTask::ColorMode::MODE_256, true));
     connect(commandTask.data(), &CommandTask::finished, this, [this, cmd_line,
           command, oldOffset] (const QString & result) {
@@ -243,11 +255,12 @@ void ConsoleWidget::executeCommand(const QString &command)
     });
 
     Core()->getAsyncTaskManager()->start(commandTask);
+#endif
 }
 
 void ConsoleWidget::sendToStdin(const QString &input)
 {
-#if __UNIX__
+#if R2__UNIX__
     ssize_t input_size = input.size() + 1;
     ssize_t res = write(stdinFile, (input + "\n").toStdString().c_str(), input_size);
     if (res == input_size) {
@@ -257,6 +270,7 @@ void ConsoleWidget::sendToStdin(const QString &input)
         addOutput("Couldn't write to stdin.");
     }
 #else
+    Q_UNUSED (input);
     // Stdin redirection isn't currently available in windows because console applications
     // with stdin already get their own console window with stdin when they are launched
     // that the user can type into.
@@ -333,8 +347,6 @@ void ConsoleWidget::historyNext()
             } else {
                 ui->r2InputLineEdit->clear();
             }
-
-
         }
     }
 }

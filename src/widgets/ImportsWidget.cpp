@@ -4,24 +4,22 @@
 #include "core/MainWindow.h"
 #include "common/Helpers.h"
 
+/*
 #include <QPainter>
 #include <QPen>
 #include <QShortcut>
 #include <QTreeWidget>
+*/
 
-ImportsModel::ImportsModel(QList<ImportDescription> *imp, QObject *parent) :
-    AddressableItemModel(parent),
-    imports(imp)
+ImportsModel::ImportsModel(QList<ImportDescription> *imp, QObject *parent)
+    : AddressableItemModel<QAbstractListModel>(parent),
+      imports(imp)
 {}
 
 int ImportsModel::rowCount(const QModelIndex &parent) const
 {
-#if __linux__ || R2_VERSION_NUMBER < 50609
-    return imports->count();
-#else
-    /// XXX this needs to be fixed
-    return 0;
-#endif
+	return !parent.isValid() ? imports->count() : 0;
+	//return imports != NULL ? imports->count() : 0;
 }
 
 int ImportsModel::columnCount(const QModelIndex &) const
@@ -31,40 +29,40 @@ int ImportsModel::columnCount(const QModelIndex &) const
 
 QVariant ImportsModel::data(const QModelIndex &index, int role) const
 {
-    const ImportDescription &import = imports->at(index.row());
+    const ImportDescription &imp = imports->at(index.row());
     switch (role) {
     case Qt::ForegroundRole:
         if (index.column() < ImportsModel::ColumnCount) {
             // Red color for unsafe functions
-            if (banned.match(import.name).hasMatch())
+            if (banned.match(imp.name).hasMatch())
                 return Config()->getColor("gui.item_unsafe");
             // Grey color for symbols at offset 0 which can only be filled at runtime
-            if (import.plt == 0)
+            if (imp.plt == 0)
                 return Config()->getColor("gui.item_invalid");
         }
         break;
     case Qt::DisplayRole:
         switch (index.column()) {
         case ImportsModel::AddressColumn:
-            return RAddressString(import.plt);
+            return RAddressString(imp.plt);
         case ImportsModel::TypeColumn:
-            return import.type;
+            return imp.type;
         case ImportsModel::SafetyColumn:
-            return banned.match(import.name).hasMatch() ? tr("Unsafe") : QStringLiteral("");
+            return banned.match(imp.name).hasMatch() ? tr("Unsafe") : QStringLiteral("");
         case ImportsModel::LibraryColumn:
-            return import.libname;
+            return imp.libname;
         case ImportsModel::NameColumn:
-            return import.name;
+            return imp.name;
         case ImportsModel::CommentColumn:
-            return Core()->getCommentAt(import.plt);
+            return Core()->getCommentAt(imp.plt);
         default:
             break;
         }
         break;
     case ImportsModel::ImportDescriptionRole:
-        return QVariant::fromValue(import);
+        return QVariant::fromValue(imp);
     case ImportsModel::AddressRole:
-        return QVariant::fromValue(import.plt);
+        return QVariant::fromValue(imp.plt);
     default:
         break;
     }
@@ -123,8 +121,7 @@ bool ImportsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) con
 {
     QModelIndex index = sourceModel()->index(row, 0, parent);
     auto import = index.data(ImportsModel::ImportDescriptionRole).value<ImportDescription>();
-
-    return import.name.contains(filterRegExp());
+    return import.name.contains(FILTER_REGEX);
 }
 
 bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -148,7 +145,8 @@ bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     case ImportsModel::LibraryColumn:
         if (leftImport.libname != rightImport.libname)
             return leftImport.libname < rightImport.libname;
-    // Fallthrough. Sort by Library and then by import name
+        // Fallthrough. Sort by Library and then by import name
+        return leftImport.name < rightImport.name;
     case ImportsModel::NameColumn:
         return leftImport.name < rightImport.name;
     case ImportsModel::CommentColumn:
@@ -166,26 +164,31 @@ bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
  */
 
 ImportsWidget::ImportsWidget(MainWindow *main) :
-    ListDockWidget(main),
-    importsModel(new ImportsModel(&imports, this)),
-    importsProxyModel(new ImportsProxyModel(importsModel, this))
+    ListDockWidget(main)
+    //, importsModel(new ImportsModel(&imports, this)),
+    //importsProxyModel(new ImportsProxyModel(importsModel, this))
 {
     setWindowTitle(tr("Imports"));
     setObjectName("ImportsWidget");
 
+    importsModel = new ImportsModel(&imports, this);
+    importsProxyModel = new ImportsProxyModel(importsModel, this);
     setModels(importsProxyModel);
     // Sort by library name by default to create a solid context per each group of imports
     ui->treeView->sortByColumn(ImportsModel::LibraryColumn, Qt::AscendingOrder);
+
     QShortcut *toggle_shortcut = new QShortcut(widgetShortcuts["ImportsWidget"], main);
     connect(toggle_shortcut, &QShortcut::activated, this, [=] (){ 
             toggleDockWidget(true);
-            } );
+    } );
 
     connect(Core(), &IaitoCore::codeRebased, this, &ImportsWidget::refreshImports);
     connect(Core(), &IaitoCore::refreshAll, this, &ImportsWidget::refreshImports);
+/*
     connect(Core(), &IaitoCore::commentsChanged, this, [this]() {
         qhelpers::emitColumnChanged(importsModel, ImportsModel::CommentColumn);
     });
+*/
 }
 
 ImportsWidget::~ImportsWidget() {}
@@ -195,5 +198,5 @@ void ImportsWidget::refreshImports()
     importsModel->beginResetModel();
     imports = Core()->getAllImports();
     importsModel->endResetModel();
-    qhelpers::adjustColumns(ui->treeView, 4, 0);
+    qhelpers::adjustColumns(ui->treeView, ImportsModel::ColumnCount, 0);
 }

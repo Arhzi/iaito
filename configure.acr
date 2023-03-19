@@ -1,5 +1,5 @@
 PKGNAME iaito
-VERSION 5.7.2
+VERSION 5.8.4
 CONTACT pancake ; pancake@nopcode.org
 
 LANG_CXX!
@@ -10,8 +10,13 @@ PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
 CHKPRG! QMAKE qmake
 CHKPRG! LRELEASE lrelease
 
+WANT_PYTHON = 0 ;
+WANT_PYTHON_BINDINGS = 0 ;
+WANT_CRASH_REPORTS = 0 ;
+((
 ARG_WITH WANT_PYTHON python build with support for Python ;
 ARG_WITH WANT_PYTHON_BINDINGS python-bindings build with Python bindings ;
 ARG_WITH WANT_CRASH_REPORTS crash-reports handle crashes nicely ;
+))
 
 SUBDIRS config.mk ;

@@ -130,7 +130,7 @@ static const QHash<QString, QVariant> asmOptions = {
     { "emu.str",            true},
     { "asm.cmt.right",      true },
     { "asm.cmt.col",        60 },
-    { "asm.var.summary",    false },
+    { "asm.var.summary",    0 },
     { "asm.bytes",          false },
     { "asm.size",           false },
     { "asm.bytes.space",    false },
@@ -147,8 +147,8 @@ static const QHash<QString, QVariant> asmOptions = {
     { "asm.marks",          false },
     { "asm.refptr",         false },
     { "asm.flags.real",     true },
-    { "asm.reloff",         false },
-    { "asm.reloff.flags",   false },
+    { "asm.offset.relative",false },
+    { "asm.offset.flags",   false },
     { "esil.breakoninvalid",true },
     { "graph.offset",       false}
 };

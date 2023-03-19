@@ -3,8 +3,11 @@ TEMPLATE = app
 TARGET = iaito
 
 IAITO_VERSION_MAJOR = 5
-IAITO_VERSION_MINOR = 7
-IAITO_VERSION_PATCH = 2
+IAITO_VERSION_MINOR = 8
+IAITO_VERSION_PATCH = 4
+
+CONFIG+=app_bundle
+LIBS+= -dead_strip
 
 CONFIG += sdk_no_version_check
 
@@ -16,39 +19,14 @@ unix:QMAKE_LFLAGS += "-Wl,-rpath,/usr/local/lib"
 # unix:QMAKE_LFLAGS += "-fsanitize=thread"
 # QMAKE_CXXFLAGS += -fsanitize=thread
 QMAKE_CXXFLAGS += -g -O0
-# QMAKE_CXXFLAGS += -O0 -fsanitize=address
-# QMAKE_LFLAGS += -fsanitize=address
-
+#QMAKE_CXXFLAGS += -O0 -fsanitize=address
+#QMAKE_LFLAGS += -fsanitize=address
 
 VERSION = $${IAITO_VERSION_MAJOR}.$${IAITO_VERSION_MINOR}.$${IAITO_VERSION_PATCH}
 
 # Required QT version
 lessThan(QT_MAJOR_VERSION, 5): error("requires Qt 5")
 # Doesnt build for Qt6 yet... but will do soon
-
-TRANSLATIONS += translations/ar/iaito_ar.ts \
-                translations/ca/iaito_ca.ts \
-                translations/de/iaito_de.ts \
-                translations/es-ES/iaito_es.ts \
-                translations/eo/iaito_eo.ts \
-                translations/eu/iaito_eu.ts \
-                translations/fa/iaito_fa.ts \
-                translations/gl/iaito_gl.ts \
-                translations/fr/iaito_fr.ts \
-                translations/he/iaito_he.ts \
-                translations/hi/iaito_hi.ts \
-                translations/it/iaito_it.ts \
-                translations/ja/iaito_ja.ts \
-                translations/nl/iaito_nl.ts \
-                translations/pt-PT/iaito_pt.ts \
-                translations/ro/iaito_ro.ts \
-                translations/ru/iaito_ru.ts \
-                translations/tr/iaito_tr.ts \
-                translations/tp/iaito_tp.ts \
-                translations/zh-CN/iaito_zh.ts
-
-# translations/ko/iaito_ko.ts problems with fonts
-# translations/pt-BR/iaito_pt.ts #2321 handling multiple versions of a language
 
 # Icon for OS X
 ICON = img/iaito-o.icns
@@ -59,12 +37,14 @@ win32: RC_ICONS = img/iaito-o.ico
 QT += core gui widgets svg network
 QT_CONFIG -= no-pkg-config
 
+greaterThan(QT_MAJOR_VERSION, 5): QT += svgwidgets
 
 !defined(IAITO_ENABLE_CRASH_REPORTS, var)      IAITO_ENABLE_CRASH_REPORTS=false
 equals(IAITO_ENABLE_CRASH_REPORTS, true)       CONFIG += IAITO_ENABLE_CRASH_REPORTS
 
 !defined(IAITO_ENABLE_PYTHON, var)             IAITO_ENABLE_PYTHON=false
 equals(IAITO_ENABLE_PYTHON, true)              CONFIG += IAITO_ENABLE_PYTHON
+IAITO_ENABLE_PYTHON=false
 
 !defined(IAITO_ENABLE_PYTHON_BINDINGS, var)    IAITO_ENABLE_PYTHON_BINDINGS=false
 equals(IAITO_ENABLE_PYTHON, true) {
@@ -84,25 +64,28 @@ equals(IAITO_R2GHIDRA_STATIC, true)            CONFIG += IAITO_R2GHIDRA_STATIC
 
 DEFINES += IAITO_SOURCE_BUILD
 
+
+# crash reports and python code has been removed and its unmaintained,
+# so let's just disable the messages that are printed out
 IAITO_ENABLE_CRASH_REPORTS {
     message("Crash report support enabled.")
     DEFINES += IAITO_ENABLE_CRASH_REPORTS
 } else {
-    message("Crash report support disabled.")
+    # message("Crash report support disabled.")
 }
 
 IAITO_ENABLE_PYTHON {
     message("Python enabled.")
     DEFINES += IAITO_ENABLE_PYTHON
 } else {
-    message("Python disabled.")
+    # message("Python disabled.")
 }
 
 IAITO_ENABLE_PYTHON_BINDINGS {
     message("Python Bindings enabled.")
     DEFINES += IAITO_ENABLE_PYTHON_BINDINGS
 } else {
-    message("Python Bindings disabled. (requires IAITO_ENABLE_PYTHON=true)")
+    # message("Python Bindings disabled. (requires IAITO_ENABLE_PYTHON=true)")
 }
 
 win32:defined(IAITO_DEPS_DIR, var) {
@@ -719,10 +702,10 @@ unix {
         PREFIX = /usr/local
     }
 
-    icon_file = img/iaito-o.svg
+    icon_file = img/org.radare.iaito.svg
 
-    share_pixmaps.path = $$PREFIX/share/pixmaps
-    share_pixmaps.files = $$icon_file
+    share_icon.path = $$PREFIX/share/icons/hicolor/scalable/apps
+    share_icon.files = $$icon_file
 
 
     desktop_file = org.radare.iaito.desktop
@@ -743,7 +726,7 @@ unix {
     # built-in no need for files atm
     target.path = $$PREFIX/bin
 
-    INSTALLS += target share_appdata share_applications share_pixmaps
+    INSTALLS += target share_appdata share_applications share_icon
 
     # Triggered for example by 'qmake APPIMAGE=1'
     !isEmpty(APPIMAGE){

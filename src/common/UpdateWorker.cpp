@@ -37,7 +37,7 @@ UpdateWorker::UpdateWorker(QObject *parent) :
 
 void UpdateWorker::checkCurrentVersion(time_t timeoutMs)
 {
-    QUrl url("https://api.github.com/repos/radareorg/cutter/releases/latest");
+    QUrl url("https://api.github.com/repos/radareorg/iaito/releases/latest");
     QNetworkRequest request;
     request.setUrl(url);
 
@@ -57,8 +57,8 @@ void UpdateWorker::download(QString filename, QString version)
     downloadFile.open(QIODevice::WriteOnly);
 
     QNetworkRequest request;
-    request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
-    QUrl url(QString("https://github.com/radareorg/cutter/releases/"
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, true);
+    QUrl url(QString("https://github.com/radareorg/iaito/releases/"
                      "download/v%1/%2").arg(version).arg(getRepositoryFileName()));
     request.setUrl(url);
 
@@ -77,8 +77,8 @@ void UpdateWorker::showUpdateDialog(bool showDontCheckForUpdatesButton)
                + "<b>" + tr("Current version:") + "</b> " IAITO_VERSION_FULL "<br/>"
                + "<b>" + tr("Latest version:") + "</b> " + latestVersion.toString() + "<br/><br/>"
                + tr("For update, please check the link:<br/>")
-               + QString("<a href=\"https://github.com/radareorg/cutter/releases/tag/v%1\">"
-                         "https://github.com/radareorg/cutter/releases/tag/v%1</a><br/>").arg(latestVersion.toString())
+               + QString("<a href=\"https://github.com/radareorg/iaito/releases/tag/v%1\">"
+                         "https://github.com/radareorg/iaito/releases/tag/v%1</a><br/>").arg(latestVersion.toString())
                + tr("or click \"Download\" to download latest version of Iaito."));
     if (showDontCheckForUpdatesButton) {
         mb.setStandardButtons(QMessageBox::Save | QMessageBox::Reset | QMessageBox::Ok);
@@ -92,12 +92,22 @@ void UpdateWorker::showUpdateDialog(bool showDontCheckForUpdatesButton)
     if (ret == QMessageBox::Reset) {
         Config()->setAutoUpdateEnabled(false);
     } else if (ret == QMessageBox::Save) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // not implemented Qt::SHIFT doesnt exist
+        QString fullFileName =
+                QFileDialog::getSaveFileName(nullptr,
+                                             tr("Choose directory for downloading"),
+                                             QString("%1").arg(r_file_home (NULL)) +
+                                             QDir::separator() + getRepositoryFileName(),
+                                             QString("%1 (*.%1)").arg(getRepositeryExt()));
+#else
         QString fullFileName =
                 QFileDialog::getSaveFileName(nullptr,
                                              tr("Choose directory for downloading"),
                                              QStandardPaths::writableLocation(QStandardPaths::HomeLocation) +
                                              QDir::separator() + getRepositoryFileName(),
                                              QString("%1 (*.%1)").arg(getRepositeryExt()));
+#endif
         if (!fullFileName.isEmpty()) {
             QProgressDialog progressDial(tr("Downloading update..."),
                                          tr("Cancel"),

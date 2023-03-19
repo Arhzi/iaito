@@ -36,7 +36,6 @@ void AnalTask::runTask()
     if (options.writeEnabled) {
         perms |= R_PERM_W;
         emit Core()->ioModeChanged();
-
     }
 
     // Demangle (must be before file Core()->loadFile)
@@ -70,7 +69,7 @@ void AnalTask::runTask()
     if (isInterrupted()) {
         return;
     }
-
+    Core()->setConfig("anal.vars", options.analVars);
     if (!options.os.isNull()) {
         Core()->setConfig("asm.os", options.os);
     }

@@ -23,6 +23,30 @@ iaito is the official graphical interface for radare2, a libre reverse engineeri
 
 There are automated CI builds and [releases](https://github.com/radareorg/iaito/releases) of iaito for Linux, macOS and Windows.
 
+<a href='https://flathub.org/apps/details/org.radare.iaito'><img width='120' alt='Download on Flathub' src='https://flathub.org/assets/badges/flathub-badge-en.png'/></a>
+
+### Translations
+
+Note: The flatpak/flathub version already ships the translations as an optional extension.
+
+To install translations please download latest version from [iaito-translations](https://github.com/radareorg/iaito-translations) repo.
+
+To install in your home directory, run the following:
+
+```sh
+$ git clone https://github.com/radareorg/iaito-translations.git
+$ cd iaito-translations
+$ make user-install
+```
+
+Alternatively, it this project makefile can be used to install them:
+
+```sh
+$ make user-install-translations
+OR
+$ make install-translations # to install to system
+```
+
 ## Source Builds
 
 ### Dependencies
@@ -56,7 +80,7 @@ make
 make run
 ```
 
-To install the app and the translations in your home:
+To install the app in your home:
 
 ```sh
 make install

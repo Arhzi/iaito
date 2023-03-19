@@ -272,7 +272,7 @@ void DecompilerContextMenu::setActionCopy() // Set all three copy actions
     connect(&actionCopyReferenceAddress, &QAction::triggered, this,
             &DecompilerContextMenu::actionCopyReferenceAddressTriggered);
     addAction(&actionCopyReferenceAddress);
-    actionCopyReferenceAddress.setShortcut({Qt::CTRL + Qt::SHIFT + Qt::Key_C});
+    actionCopyReferenceAddress.setShortcut({Qt::CTRL | Qt::SHIFT | Qt::Key_C});
 }
 
 void DecompilerContextMenu::setActionShowInSubmenu()
@@ -334,14 +334,14 @@ void DecompilerContextMenu::setActionToggleBreakpoint()
 {
     connect(&actionToggleBreakpoint, &QAction::triggered, this,
             &DecompilerContextMenu::actionToggleBreakpointTriggered);
-    actionToggleBreakpoint.setShortcuts({Qt::Key_F2, Qt::CTRL + Qt::Key_B});
+    actionToggleBreakpoint.setShortcuts({Qt::Key_F2, Qt::CTRL | Qt::Key_B});
 }
 
 void DecompilerContextMenu::setActionAdvancedBreakpoint()
 {
     connect(&actionAdvancedBreakpoint, &QAction::triggered, this,
             &DecompilerContextMenu::actionAdvancedBreakpointTriggered);
-    actionAdvancedBreakpoint.setShortcut({Qt::CTRL + Qt::Key_F2});
+    actionAdvancedBreakpoint.setShortcut({Qt::CTRL | Qt::Key_F2});
 }
 
 void DecompilerContextMenu::setActionContinueUntil()

@@ -11,13 +11,9 @@ RelocsModel::RelocsModel(QList<RelocDescription> *relocs, QObject *parent) :
     relocs(relocs)
 {}
 
-int RelocsModel::rowCount(const QModelIndex &parent) const
+int RelocsModel::rowCount(R_UNUSED const QModelIndex &parent) const
 {
-#if __linux__ || R2_VERSION_NUMBER < 50609
-    return relocs->count();
-#else
-    return 0;
-#endif
+    return parent.isValid() ? relocs->count() : 0;
 }
 
 int RelocsModel::columnCount(const QModelIndex &) const
@@ -93,7 +89,7 @@ bool RelocsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) cons
     QModelIndex index = sourceModel()->index(row, 0, parent);
     auto reloc = index.data(RelocsModel::RelocDescriptionRole).value<RelocDescription>();
 
-    return reloc.name.contains(filterRegExp());
+    return reloc.name.contains(FILTER_REGEX);
 }
 
 bool RelocsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const

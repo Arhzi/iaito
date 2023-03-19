@@ -47,6 +47,7 @@ InitialOptionsDialog::InitialOptionsDialog(MainWindow *main):
     }
 
     setTooltipWithConfigHelp(ui->archComboBox,"asm.arch");
+    ui->archComboBox->model()->sort(0);
 
     // cpu combo box
     ui->cpuComboBox->lineEdit()->setPlaceholderText(tr("Auto"));
@@ -150,12 +151,16 @@ void InitialOptionsDialog::loadOptions(const InitialOptions &options)
 {
     if (options.analCmd.isEmpty()) {
         analLevel = 0;
-    } else if (options.analCmd.first().command == "aaa" ) {
+    } else if (options.analCmd.first().command == "aa" ) {
         analLevel = 1;
-    } else if (options.analCmd.first().command ==  "aaaa" ) {
+    } else if (options.analCmd.first().command == "aaa" ) {
         analLevel = 2;
-    } else {
+    } else if (options.analCmd.first().command ==  "aaaa" ) {
         analLevel = 3;
+    } else if (options.analCmd.first().command ==  "aaaaa" ) {
+        analLevel = 4;
+    } else {
+        analLevel = 5;
         AnalysisCommands item;
         QList<QString> commands = getAnalysisCommands(options);
         foreach (item, analysisCommands){
@@ -188,9 +193,7 @@ void InitialOptionsDialog::loadOptions(const InitialOptions &options)
     }
 
 	ui->writeCheckBox->setChecked(options.writeEnabled);
-
-
-    // TODO: all other options should also be applied to the ui
+    ui->varCheckBox->setChecked(Core()->getConfigb("anal.vars"));
 }
 
 
@@ -273,12 +276,12 @@ void InitialOptionsDialog::setupAndStartAnalysis(/*int level, QList<QString> adv
         options.binLoadAddr = Core()->math(ui->entry_loadOffset->text());
     }
 
-    options.mapAddr = Core()->math(
-                          ui->entry_mapOffset->text());      // Where to map the file once loaded (-m)
+    options.mapAddr = Core()->math(ui->entry_mapOffset->text());      // Where to map the file once loaded (-m)
     options.arch = getSelectedArch();
     options.cpu = getSelectedCPU();
     options.bits = getSelectedBits();
     options.os = getSelectedOS();
+    options.analVars = ui->varCheckBox->isChecked();
     options.writeEnabled = ui->writeCheckBox->isChecked();
     options.loadBinInfo = !ui->binCheckBox->isChecked();
     options.loadBinCache = ui->binCacheCheckBox->isChecked();
@@ -301,12 +304,18 @@ void InitialOptionsDialog::setupAndStartAnalysis(/*int level, QList<QString> adv
     int level = ui->analSlider->value();
     switch (level) {
     case 1:
-        options.analCmd = { {"aaa", "Auto analysis"} };
+        options.analCmd = { {"aa", "Auto analysis"} };
         break;
     case 2:
-        options.analCmd = { {"aaaa", "Auto analysis (experimental)"} };
+        options.analCmd = { {"aaa", "Advanced Auto analysis"} };
         break;
     case 3:
+        options.analCmd = { {"aaaa", "Experimental analysis"} };
+        break;
+    case 4:
+        options.analCmd = { {"aaaaa", "Unstable analysis" } };
+        break;
+    case 5:
         options.analCmd = getSelectedAdvancedAnalCmds();
         break;
     default:
@@ -315,10 +324,10 @@ void InitialOptionsDialog::setupAndStartAnalysis(/*int level, QList<QString> adv
     }
 
 
+    MainWindow *main = this->main;
+#if 0
     AnalTask *analTask = new AnalTask();
     analTask->setOptions(options);
-
-    MainWindow *main = this->main;
     connect(analTask, &AnalTask::openFileFailed, main, &MainWindow::openNewFileFailed);
     connect(analTask, &AsyncTask::finished, main, [analTask, main]() {
         if (analTask->getOpenFileFailed()) {
@@ -335,8 +344,83 @@ void InitialOptionsDialog::setupAndStartAnalysis(/*int level, QList<QString> adv
     taskDialog->show();
 
     Core()->getAsyncTaskManager()->start(analTaskPtr);
+#endif
 
     done(0);
+#if MONOTHREAD
+    int perms = R_PERM_RX;
+    if (options.writeEnabled) {
+        perms |= R_PERM_W;
+        emit Core()->ioModeChanged();
+    }
+
+    // Demangle (must be before file Core()->loadFile)
+    Core()->setConfig("bin.demangle", options.demangle);
+    if (options.filename.endsWith("://") || options.filename == "") {
+        QMessageBox::warning(this, tr("Error"), tr("Please select a file"));
+        return;
+    }
+    // Do not reload the file if already loaded
+    // QJsonArray openedFiles = Core()->getOpenedFiles();
+    // if (true)  { // !openedFiles.size() && options.filename.length()) {
+    if (options.filename.length()) {
+        bool fileLoaded = Core()->loadFile(options.filename,
+                                           options.binLoadAddr,
+                                           options.mapAddr,
+                                           perms,
+                                           options.useVA,
+                                           options.loadBinCache,
+                                           options.loadBinInfo,
+                                           options.forceBinPlugin);
+        if (!fileLoaded) {
+//            emit openFileFailed();
+            return;
+        }
+    }
+
+    // r_core_bin_load might change asm.bits, so let's set that after the bin is loaded
+    Core()->setCPU(options.arch, options.cpu, options.bits);
+
+    if (!options.os.isNull()) {
+        Core()->setConfig("asm.os", options.os);
+    }
+
+    if (!options.pdbFile.isNull()) {
+   //     log(tr("Loading PDB file..."));
+        Core()->loadPDB(options.pdbFile);
+    }
+
+    if (!options.shellcode.isNull() && options.shellcode.size() / 2 > 0) {
+  //      log(tr("Loading shellcode..."));
+        Core()->cmdRaw("wx " + options.shellcode);
+    }
+
+    if (options.endian != InitialOptions::Endianness::Auto) {
+        Core()->setEndianness(options.endian == InitialOptions::Endianness::Big);
+    }
+    ui->varCheckBox->setChecked(Core()->getConfigb("anal.vars"));
+
+    Core()->cmdRaw("fs *");
+
+    if (!options.script.isNull()) {
+ //       log(tr("Executing script..."));
+        Core()->loadScript(options.script);
+    }
+
+    if (!options.analCmd.empty()) {
+ //       log(tr("Executing analysis..."));
+        for (const CommandDescription &cmd : options.analCmd) {
+            // log(cmd.description);
+          //  log(cmd.command + " : " + cmd.description);
+            // use cmd instead of cmdRaw because commands can be unexpected
+            Core()->cmd(cmd.command);
+        }
+        // log(tr("Analysis complete!"));
+    } else {
+//        log(tr("Skipping Analysis."));
+    }
+#endif
+        main->finalizeOpen();
 }
 
 void InitialOptionsDialog::on_okButton_clicked()
@@ -357,11 +441,13 @@ QString InitialOptionsDialog::analysisDescription(int level)
     case 0:
         return tr("No analysis");
     case 1:
-        return tr("Auto-Analysis (aaa)");
+        return tr("Auto-Analysis (aa)");
     case 2:
-        return tr("Auto-Analysis Experimental (aaaa)");
+        return tr("Advanced Analysis (aaa)");
     case 3:
-        return tr("Advanced");
+        return tr("Experimental Analysis (aaaa)");
+    case 4:
+        return tr("Cutting Edge Analysis (aaaaa)");
     default:
         return tr("Unknown");
     }
@@ -376,7 +462,7 @@ void InitialOptionsDialog::on_analSlider_valueChanged(int value)
     } else {
         ui->analCheckBox->setChecked(true);
         ui->analCheckBox->setText(tr("Analysis: Enabled"));
-        if (value == 3) {
+        if (value == 5) {
             ui->analoptionsFrame->setVisible(true);
             ui->advancedAnlysisLine->setVisible(true);
         } else {
