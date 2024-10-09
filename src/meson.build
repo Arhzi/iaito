@@ -1,5 +1,5 @@
 project('iaito', 'cpp',
-  default_options: 'cpp_std=c++11',
+  default_options: 'cpp_std=c++20',
   meson_version: '>=0.50.0')
 
 #  default_options : [
@@ -65,11 +65,15 @@ endif
 
 incdirs = ['.']
 if host_machine.system() == 'windows'
+  windows = import('windows')
+  iaito_res = windows.compile_resources('iaito_resource.rc')
+  sources += iaito_res
   incdirs += [
     '../radare2/include/libr',
     '../radare2/include/libr/sdb',
   ]
   add_global_arguments('-D_WINDOWS', language:'cpp')
+  add_global_arguments('/std:c++20', language:'cpp')
   r2libdir = [
     meson.current_source_dir() + '\\..\\radare2\\lib',
     'C:\\radare2\\lib'

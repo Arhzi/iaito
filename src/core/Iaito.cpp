@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QStringList>
 #include <QStandardPaths>
+#include "GuiCorePlugin.cpp"
 
 #include <cassert>
 #include <memory>
@@ -15,6 +16,7 @@
 #include "common/Configuration.h"
 #include "common/AsyncTask.h"
 #include "common/R2Task.h"
+#include "common/R2Shims.h"
 #include "common/Json.h"
 #include "core/Iaito.h"
 #include "Decompiler.h"
@@ -22,6 +24,12 @@
 #include <r_asm.h>
 #include <r_core.h>
 #include <r_cmd.h>
+
+#if R2_VERSION_NUMBER >= 50809 // reverse compatability
+#define BO bo
+#else
+#define BO o
+#endif
 
 Q_GLOBAL_STATIC(IaitoCore, uniqueInstance)
 
@@ -182,73 +190,85 @@ IaitoCore::IaitoCore(QObject *parent):
 
 IaitoCore *IaitoCore::instance()
 {
-    return uniqueInstance;
+	return uniqueInstance;
 }
 
 void IaitoCore::initialize(bool loadPlugins)
 {
-    core_ = r_core_new();
+	RCore *kore = iaitoPluginCore();
+	if (kore != nullptr) {
+		core_ = kore;
+	} else {
+		core_ = r_core_new();
+	}
 #if R2_VERSION_NUMBER < 50609
-    r_core_task_sync_begin(&core_->tasks);
-    coreBed = r_cons_sleep_begin();
+	r_core_task_sync_begin (&core_->tasks);
+	coreBed = r_cons_sleep_begin ();
 #endif
-    CORE_LOCK();
-    setConfig("dbg.wrap", true);
+	CORE_LOCK();
+	setConfig ("dbg.wrap", true);
 
-    r_event_hook(core_->anal->ev, R_EVENT_ALL, cutterREventCallback, this);
+	r_event_hook (core_->anal->ev, R_EVENT_ALL, cutterREventCallback, this);
 #if 0
 #if defined(APPIMAGE) || defined(MACOS_R2_BUNDLED)
-    auto prefix = QDir(QCoreApplication::applicationDirPath());
+	auto prefix = QDir(QCoreApplication::applicationDirPath());
 #ifdef APPIMAGE
-    // Executable is in appdir/bin
-    prefix.cdUp();
-    qInfo() << "Setting r2 prefix =" << prefix.absolutePath() << " for AppImage.";
+	// Executable is in appdir/bin
+	prefix.cdUp();
+	qInfo() << "Setting r2 prefix =" << prefix.absolutePath() << " for AppImage.";
 #else // MACOS_R2_BUNDLED
-    // Executable is in Contents/MacOS, prefix is Contents/Resources/r2
-    prefix.cdUp();
-    prefix.cd("Resources");
-    prefix.cd("r2");
-    qInfo() << "Setting r2 prefix =" << prefix.absolutePath() << " for macOS Application Bundle.";
+      // Executable is in Contents/MacOS, prefix is Contents/Resources/r2
+	prefix.cdUp();
+	prefix.cd("Resources");
+	prefix.cd("r2");
+	qInfo() << "Setting r2 prefix =" << prefix.absolutePath() << " for macOS Application Bundle.";
 #endif
-    setConfig("dir.prefix", prefix.absolutePath());
+	setConfig("dir.prefix", prefix.absolutePath());
 
-    auto pluginsDir = prefix;
-    if (pluginsDir.cd("share/radare2/plugins")) {
-        qInfo() << "Setting r2 plugins dir =" << pluginsDir.absolutePath();
-        setConfig("dir.plugins", pluginsDir.absolutePath());
-    } else {
-        qInfo() << "r2 plugins dir =" << pluginsDir.absolutePath() << "does not exist!";
-    }
+	auto pluginsDir = prefix;
+	if (pluginsDir.cd("share/radare2/plugins")) {
+		qInfo() << "Setting r2 plugins dir =" << pluginsDir.absolutePath();
+		setConfig("dir.plugins", pluginsDir.absolutePath());
+	} else {
+		qInfo() << "r2 plugins dir =" << pluginsDir.absolutePath() << "does not exist!";
+	}
 #endif
 #endif
 
-    if (!loadPlugins) {
-        setConfig("cfg.plugins", false);
-    }
-    if (getConfigi("cfg.plugins")) {
-        r_core_loadlibs(this->core_, R_CORE_LOADLIBS_ALL, nullptr);
-    }
-    // IMPLICIT r_bin_iobind (core_->bin, core_->io);
+	if (!loadPlugins) {
+		setConfig ("cfg.plugins", false);
+	}
+	if (getConfigi("cfg.plugins")) {
+		r_core_loadlibs (this->core_, R_CORE_LOADLIBS_ALL, nullptr);
+	}
+	r_lib_open_ptr (this->core_->lib, "uiaito", this, &uiaito_radare_plugin);
+	// IMPLICIT r_bin_iobind (core_->bin, core_->io);
 
-    // Otherwise r2 may ask the user for input and Iaito would freeze
-    setConfig("scr.interactive", false);
+	// Otherwise r2 may ask the user for input and Iaito would freeze
+	setConfig("scr.interactive", false);
 
-    // Initialize graph node highlighter
-    bbHighlighter = new BasicBlockHighlighter();
+	// Initialize graph node highlighter
+	bbHighlighter = new BasicBlockHighlighter();
 
-    // Initialize Async tasks manager
-    asyncTaskManager = new AsyncTaskManager(this);
+	// Initialize Async tasks manager
+	asyncTaskManager = new AsyncTaskManager(this);
 }
 
 IaitoCore::~IaitoCore()
 {
-    delete bbHighlighter;
 #if R2_VERSION_NUMBER < 50609
-    r_cons_sleep_end(coreBed);
-    r_core_task_sync_end(&core_->tasks);
+	r_cons_sleep_end (coreBed);
+	r_core_task_sync_end (&core_->tasks);
 #endif
-    r_core_free(core_);
-    r_cons_free();
+	RCore *kore = iaitoPluginCore ();
+	if (kore != nullptr) {
+		// leave qt
+		QCoreApplication::exit ();
+	} else {
+	// 	r_core_free (core_);
+		r_cons_free ();
+	}
+	delete bbHighlighter;
 }
 
 RCoreLocked IaitoCore::core()
@@ -261,28 +281,30 @@ QDir IaitoCore::getIaitoRCDefaultDirectory() const
     return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
 }
 
-QVector<QString> IaitoCore::getIaitoRCFilePaths() const
+QVector<QString> IaitoCore::getIaitoRCFilePaths(int n) const
 {
     QVector<QString> result;
-    result.push_back(QFileInfo(QDir::home(), ".iaitorc").absoluteFilePath());
+    auto filename = (n==0)? ".iaitorc": ".iaitorc2";
+    result.push_back(QFileInfo(QDir::home(), filename).absoluteFilePath());
     QStringList locations = QStandardPaths::standardLocations(QStandardPaths::AppConfigLocation);
-    for (auto &location : locations) { 
-        result.push_back(QFileInfo(QDir(location), ".iaitorc").absoluteFilePath());
+    for (auto &location : locations) {
+        result.push_back(QFileInfo(QDir(location), filename).absoluteFilePath());
     }
-    result.push_back(QFileInfo(getIaitoRCDefaultDirectory(), "rc").absoluteFilePath()); // File in config editor is from this path
+    // File in config editor is from this path
+    result.push_back(QFileInfo(getIaitoRCDefaultDirectory(), "rc").absoluteFilePath());
     return result;
 }
 
-void IaitoCore::loadIaitoRC()
+void IaitoCore::loadIaitoRC(int n)
 {
     CORE_LOCK();
-    const auto result = getIaitoRCFilePaths();
-    for(auto &cutterRCFilePath : result){
+    const auto result = getIaitoRCFilePaths(n);
+    for (auto &cutterRCFilePath : result) {
         auto cutterRCFileInfo = QFileInfo(cutterRCFilePath);
         if (!cutterRCFileInfo.exists() || !cutterRCFileInfo.isFile()) {
             continue;
         }
-        qInfo() << "Loading initialization file from " << cutterRCFilePath;
+        qInfo() << "Loading " << n << " file from " << cutterRCFilePath;
         r_core_cmd_file(core, cutterRCFilePath.toUtf8().constData());
     }
 }
@@ -295,10 +317,21 @@ void IaitoCore::loadDefaultIaitoRC()
     if (!cutterRCFileInfo.exists() || !cutterRCFileInfo.isFile()) {
         return;
     }
-    qInfo() << "Loading initialization file from " << cutterRCFilePath;
+    qInfo() << "Loading initialization script from " << cutterRCFilePath;
     r_core_cmd_file(core, cutterRCFilePath.toUtf8().constData());
 }
 
+void IaitoCore::loadSecondaryIaitoRC()
+{
+    CORE_LOCK();
+    auto cutterRCFilePath = QFileInfo(getIaitoRCDefaultDirectory(), "rc2").absoluteFilePath();
+    const auto cutterRCFileInfo = QFileInfo(cutterRCFilePath);
+    if (!cutterRCFileInfo.exists() || !cutterRCFileInfo.isFile()) {
+        return;
+    }
+    qInfo() << "Loading secondary script from " << cutterRCFilePath;
+    r_core_cmd_file(core, cutterRCFilePath.toUtf8().constData());
+}
 
 QList<QString> IaitoCore::sdbList(QString path)
 {
@@ -405,7 +438,7 @@ bool IaitoCore::isRedirectableDebugee()
     for (QJsonValue value : openFilesArray) {
         QJsonObject openFile = value.toObject();
         QString URI = openFile["uri"].toString();
-        if (URI.contains("ptrace") | URI.contains("mach")) {
+        if (URI.contains("ptrace") || URI.contains("mach")) {
             return true;
         }
     }
@@ -471,8 +504,9 @@ QString IaitoCore::cmdRawAt(const char *cmd, RVA address)
     return res;
 }
 
-void IaitoCore::cmdRaw0(const QString &s) {
+bool IaitoCore::cmdRaw0(const QString &s) {
     (void)r_core_cmd0 (core_, s.toStdString().c_str());
+    return core_->rc == 0;
 }
 
 QString IaitoCore::cmdRaw(const char *rcmd)
@@ -612,6 +646,7 @@ bool IaitoCore::loadFile(QString path, ut64 baddr, ut64 mapaddr, int perms, int 
     r_config_set_i (core->config, "io.va", va);
     r_config_set_b (core->config, "bin.cache", bincache);
 
+    Core()->loadIaitoRC(0);
     RIODesc *f = r_core_file_open (core, path.toUtf8().constData(), perms, mapaddr);
     if (!f) {
         R_LOG_ERROR ("r_core_file_open failed");
@@ -656,6 +691,9 @@ bool IaitoCore::loadFile(QString path, ut64 baddr, ut64 mapaddr, int perms, int 
     if (perms & R_PERM_W) {
         r_core_cmd0 (core, "omfg+w");
     }
+    // run script
+    // Core()->loadIaitoRC(1);
+    Core()->loadSecondaryIaitoRC();
 
     fflush(stdout);
     return true;
@@ -795,19 +833,29 @@ void IaitoCore::setAsString(RVA addr, int size, StringTypeFormats type)
 
     switch(type)
     {
-    case StringTypeFormats::None:
+    case StringTypeFormats::s_None:
     {
         command = "Cs";
         break;
     }
-    case StringTypeFormats::ASCII_LATIN1:
+    case StringTypeFormats::s_ASCII_LATIN1:
     {
         command = "Csa";
         break;
     }
-    case StringTypeFormats::UTF8:
+    case StringTypeFormats::s_UTF8:
     {
         command = "Cs8";
+        break;
+    }
+    case StringTypeFormats::s_PASCAL:
+    {
+        command = "Csp";
+        break;
+    }
+    case StringTypeFormats::s_UTF16:
+    {
+        command = "Csw";
         break;
     }
     default:
@@ -1364,7 +1412,9 @@ RefDescription IaitoCore::formatRefDesc(QJsonObject refItem)
 
     QString str = refItem["string"].toVariant().toString();
     if (!str.isEmpty()) {
-        desc.ref = str;
+        char *s = strdup (str.toStdString().c_str());
+        desc.ref = s; // str;
+        free (s);
         desc.refColor = ConfigColor("comment");
     } else {
         QString type, string;
@@ -2466,7 +2516,12 @@ QStringList IaitoCore::getAsmPluginNames()
     RListIter *it;
     QStringList ret;
 
-#if R2_VERSION_NUMBER >= 50709
+#if R2_VERSION_NUMBER >= 50809
+    RArchPlugin *ap;
+    IaitoRListForeach(core->anal->arch->plugins, it, RArchPlugin, ap) {
+        ret << ap->meta.name;
+    }
+#elif R2_VERSION_NUMBER >= 50709
     RArchPlugin *ap;
     IaitoRListForeach(core->anal->arch->plugins, it, RArchPlugin, ap) {
         ret << ap->name;
@@ -2489,7 +2544,11 @@ QStringList IaitoCore::getAnalPluginNames()
 
     RAnalPlugin *ap;
     IaitoRListForeach(core->anal->plugins, it, RAnalPlugin, ap) {
+#if R2_VERSION_NUMBER >= 50809
+        ret << ap->meta.name;
+#else
         ret << ap->name;
+#endif
     }
 
     return ret;
@@ -2575,8 +2634,10 @@ QList<RCorePluginDescription> IaitoCore::getRCorePluginDescriptions()
 
         RCorePluginDescription plugin;
 
-        plugin.name = pluginObject["Name"].toString();
-        plugin.description = pluginObject["Description"].toString();
+        plugin.name = pluginObject["name"].toString();
+        plugin.description = pluginObject["desc"].toString();
+        plugin.author = pluginObject["author"].toString();
+        plugin.license = pluginObject["license"].toString();
 
         ret << plugin;
     }
@@ -2590,7 +2651,24 @@ QList<RAsmPluginDescription> IaitoCore::getRAsmPluginDescriptions()
     RListIter *it;
     QList<RAsmPluginDescription> ret;
 
-#if R2_VERSION_NUMBER >= 50709
+#if R2_VERSION_NUMBER >= 50809
+    RArchPlugin *ap;
+    if (core->anal->arch != nullptr) {
+	    IaitoRListForeach(core->anal->arch->plugins, it, RArchPlugin, ap) {
+		    RAsmPluginDescription plugin;
+
+		    plugin.name = ap->meta.name;
+		    plugin.author = ap->meta.author;
+		    plugin.version = ap->meta.version;
+		    plugin.description = ap->meta.desc;
+		    plugin.license = ap->meta.license;
+		    plugin.architecture = ap->arch;
+		    plugin.cpus = ap->cpus;
+
+		    ret << plugin;
+	    }
+    }
+#elif R2_VERSION_NUMBER >= 50709
     RArchPlugin *ap;
     IaitoRListForeach(core->anal->arch->plugins, it, RArchPlugin, ap) {
         RAsmPluginDescription plugin;
@@ -2634,14 +2712,21 @@ QList<RAsmPluginDescription> IaitoCore::getRAnalPluginDescriptions()
     RAnalPlugin *ap;
     IaitoRListForeach(core->anal->plugins, it, RAnalPlugin, ap) {
         RAsmPluginDescription plugin;
-
+#if R2_VERSION_NUMBER >= 50809
+        plugin.name = ap->meta.name;
+        plugin.author = ap->meta.author;
+        plugin.version = ap->meta.version;
+        plugin.description = ap->meta.desc;
+        plugin.license = ap->meta.license;
+#else
         plugin.name = ap->name;
-        plugin.architecture = ap->arch;
         plugin.author = ap->author;
         plugin.version = ap->version;
-        plugin.cpus = ap->cpus;
         plugin.description = ap->desc;
         plugin.license = ap->license;
+#endif
+        // plugin.architecture = ap->arch;
+        // plugin.cpus = ap->cpus;
 
         ret << plugin;
     }
@@ -2706,12 +2791,12 @@ QList<ImportDescription> IaitoCore::getAllImports()
     RBinImport *bi;
     RListIter *it;
     const RList *imports = r_bin_get_imports(core->bin);
-    // IaitoRListForeach(core->bin->cur->o->imports, it, RBinImport, bi)
+    // IaitoRListForeach(core->bin->cur->BO->imports, it, RBinImport, bi)
     IaitoRListForeach(imports, it, RBinImport, bi) {
             QString type = QString(bi->bind) + " " + QString(bi->type);
             ImportDescription imp;
             //imp.vaddr = bi->vaddr;
-            imp.name = QString(bi->name);
+            imp.name = QString(r_bin_name_tostring(bi->name));
             imp.bind = QString(bi->bind);
             imp.type = QString(bi->type);
             ret << imp;
@@ -2754,12 +2839,12 @@ QList<SymbolDescription> IaitoCore::getAllSymbols()
     QList<SymbolDescription> ret;
 
     RBinSymbol *bs;
-    if (core && core->bin && core->bin->cur && core->bin->cur->o) {
-        IaitoRListForeach(core->bin->cur->o->symbols, it, RBinSymbol, bs) {
+    if (core && core->bin && core->bin->cur && core->bin->cur->BO) {
+        IaitoRListForeach(core->bin->cur->BO->symbols, it, RBinSymbol, bs) {
             QString type = QString(bs->bind) + " " + QString(bs->type);
             SymbolDescription symbol;
             symbol.vaddr = bs->vaddr;
-            symbol.name = QString(bs->name);
+            symbol.name = QString(r_bin_name_tostring(bs->name));
             symbol.bind = QString(bs->bind);
             symbol.type = QString(bs->type);
             ret << symbol;
@@ -2768,7 +2853,7 @@ QList<SymbolDescription> IaitoCore::getAllSymbols()
         /* list entrypoints as symbols too */
         int n = 0;
         RBinAddr *entry;
-        IaitoRListForeach(core->bin->cur->o->entries, it, RBinAddr, entry) {
+        IaitoRListForeach(core->bin->cur->BO->entries, it, RBinAddr, entry) {
             SymbolDescription symbol;
             symbol.vaddr = entry->vaddr;
             symbol.name = QString("entry") + QString::number(n++);
@@ -2862,10 +2947,10 @@ QList<RelocDescription> IaitoCore::getAllRelocs()
     CORE_LOCK();
     QList<RelocDescription> ret;
 
-    if (core && core->bin && core->bin->cur && core->bin->cur->o) {
+    if (core && core->bin && core->bin->cur && core->bin->cur->BO) {
         RBinReloc *br;
 #if R2_VERSION_NUMBER >= 50609
-        auto relocs = core->bin->cur->o->relocs;
+        auto relocs = core->bin->cur->BO->relocs;
         ////  RBIter iter;
 	RRBNode *iter;
         r_crbtree_foreach (relocs, iter, RBinReloc, br) {
@@ -2876,7 +2961,7 @@ QList<RelocDescription> IaitoCore::getAllRelocs()
             reloc.type = (br->additive ? "ADD_" : "SET_") + QString::number(br->type);
 
             if (br->import)
-                reloc.name = br->import->name;
+                reloc.name = r_bin_name_tostring(br->import->name);
             else
                 reloc.name = QString("reloc_%1").arg(QString::number(br->vaddr, 16));
 
@@ -2902,7 +2987,7 @@ QList<RelocDescription> IaitoCore::getAllRelocs()
             ret << reloc;
 	}
 #else
-        auto relocs = core->bin->cur->o->relocs;
+        auto relocs = core->bin->cur->BO->relocs;
         RBIter iter;
         r_rbtree_foreach (relocs, iter, br, RBinReloc, vrb) {
             RelocDescription reloc;
@@ -3840,27 +3925,36 @@ void IaitoCore::loadPDB(const QString &file)
 
 void IaitoCore::openProject(const QString &name)
 {
-    cmdRaw0(QString ("Po ") + name + "@e:scr.interactive=false");
-    QString notes = QString::fromUtf8(QByteArray::fromBase64(cmdRaw("Pnj").toUtf8()));
+    bool ok = cmdRaw0(QString ("Po ") + name + "@e:scr.interactive=false");
+    if (ok) {
+        notes = QString::fromUtf8(QByteArray::fromBase64(cmdRaw("Pnj").toUtf8()));
+    } else {
+        QMessageBox::critical(nullptr,
+		tr("Error"),
+		tr("Cannot open project. See console for details"));
+    }
+    // QString notes = QString::fromUtf8(QByteArray::fromBase64(cmdRaw("Pnj").toUtf8()));
+    // TODO: do something with the notes
 }
 
 void IaitoCore::saveProject(const QString &name)
 {
     Core()->setConfig("scr.interactive", false);
-#if 1
-    cmdRaw0(QString ("Ps ") + name.trimmed());
-    const bool ok = true; // use core->rc
-#else
-    const QString &rv = cmdRaw("Ps " + name.trimmed()).trimmed();
-    const bool ok = rv == name.trimmed();
-#endif
+    const bool ok = cmdRaw0(QString ("Ps ") + name.trimmed());
+    if (!ok) {
+        QMessageBox::critical(nullptr,
+		tr("Error"),
+		tr("Cannot save project. Ensure the project name doesnt have any special or uppercase character"));
+    }
+#if 0
     cmdRaw(QString("Pnj %1").arg(QString(notes.toUtf8().toBase64())));
+#endif
     emit projectSaved(ok, name);
 }
 
 void IaitoCore::deleteProject(const QString &name)
 {
-    cmdRaw("P-" + name);
+    cmdRaw0("P-" + name);
 }
 
 bool IaitoCore::isProjectNameValid(const QString &name)
@@ -3898,7 +3992,7 @@ QList<DisassemblyLine> IaitoCore::disassembleLines(RVA offset, int lines)
 /**
  * @brief return hexdump of <size> from an <offset> by a given formats
  * @param address - the address from which to print the hexdump
- * @param size - number of bytes to print 
+ * @param size - number of bytes to print
  * @param format - the type of hexdump (qwords, words. decimal, etc)
  */
 QString IaitoCore::hexdump(RVA address, int size, HexdumpFormats format)
@@ -4077,7 +4171,7 @@ void IaitoCore::setWriteMode(bool enabled)
         // New mode is the same as current and IO Cache is disabled. Do nothing.
         return;
     }
-    
+
     // Change from read-only to write-mode
     if (enabled && !writeModeState) {
         cmdRaw("oo+");
@@ -4104,7 +4198,7 @@ bool IaitoCore::isWriteModeEnabled()
 /**
  * @brief get a compact disassembly preview for tooltips
  * @param address - the address from which to print the disassembly
- * @param num_of_lines - number of instructions to print 
+ * @param num_of_lines - number of instructions to print
  */
 QStringList IaitoCore::getDisassemblyPreview(RVA address, int num_of_lines)
 {
@@ -4142,10 +4236,10 @@ QStringList IaitoCore::getDisassemblyPreview(RVA address, int num_of_lines)
 /**
  * @brief get a compact hexdump preview for tooltips
  * @param address - the address from which to print the hexdump
- * @param size - number of bytes to print 
+ * @param size - number of bytes to print
  */
 QString IaitoCore::getHexdumpPreview(RVA address, int size)
-{     
+{
     // temporarily simplify the disasm output to get it colorful and simple to read
     TempConfig tempConfig;
     tempConfig

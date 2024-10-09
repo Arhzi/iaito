@@ -6,6 +6,7 @@
 #include "GraphOptionsWidget.h"
 #include "DebugOptionsWidget.h"
 #include "PluginsOptionsWidget.h"
+#include "../R2PluginsDialog.h"
 #include "InitializationFileEditor.h"
 #include "AnalOptionsWidget.h"
 
@@ -30,14 +31,21 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         {
             tr("Disassembly"),
             new AsmOptionsWidget(this),
-            QIcon(":/img/icons/disas.svg"),
-            {
+            QIcon(":/img/icons/disas.svg")
+	    /*
+            ,{
                 {
                     "Graph",
                     new GraphOptionsWidget(this),
                     QIcon(":/img/icons/graph.svg")
                 },
             }
+	    */
+        },
+        {
+            tr("Graph"),
+            new GraphOptionsWidget(this),
+            QIcon(":/img/icons/graph.svg")
         },
         {
             tr("Debug"),
@@ -49,13 +57,14 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
             new AppearanceOptionsWidget(this),
             QIcon(":/img/icons/polar.svg")
         },
-        {
+        { // we must deprecate all the iaito plugins, just use r2 ones
             tr("Plugins"),
-            new PluginsOptionsWidget(this),
+            //new PluginsOptionsWidget(this),
+            new R2PluginsDialog(this),
             QIcon(":/img/icons/plugins.svg")
         },
         {
-            tr("Initialization Script"),
+            tr("Scripts"),
             new InitializationFileEditor(this),
             QIcon(":/img/icons/initialization.svg")
         },
@@ -66,8 +75,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         }
     };
 
-    for (auto &c : prefs)
-    {
+    for (auto &c : prefs) {
         c.addItem(*ui->configCategories, *ui->configPanel);
     }
 

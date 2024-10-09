@@ -34,8 +34,8 @@
      <property name="bottomMargin">
       <number>2</number>
      </property>
-     <item alignment="Qt::AlignHCenter">
-      <widget class="QSvgWidget" name="logoSvgWidget" native="true">
+     <item alignment="Qt::AlignmentFlag::AlignHCenter">
+      <widget class="ClickableSvgWidget" name="logoSvgWidget" native="true">
        <property name="minimumSize">
         <size>
          <width>88</width>
@@ -49,52 +49,6 @@
         </size>
        </property>
       </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="buttonBar" stretch="0,0,0">
-     <property name="spacing">
-      <number>10</number>
-     </property>
-     <property name="topMargin">
-      <number>0</number>
-     </property>
-     <item>
-      <spacer name="horizontalSpacer_4">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>500</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QPushButton" name="aboutButton">
-       <property name="autoFillBackground">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>About</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>500</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
      </item>
     </layout>
    </item>
@@ -124,10 +78,10 @@
         </size>
        </property>
        <property name="frameShape">
-        <enum>QFrame::NoFrame</enum>
+        <enum>QFrame::Shape::NoFrame</enum>
        </property>
        <property name="frameShadow">
-        <enum>QFrame::Plain</enum>
+        <enum>QFrame::Shadow::Plain</enum>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <property name="leftMargin">
@@ -155,7 +109,7 @@
             <item>
              <layout class="QGridLayout" name="gridLayout">
               <property name="sizeConstraint">
-               <enum>QLayout::SetDefaultConstraint</enum>
+               <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
               </property>
               <property name="horizontalSpacing">
                <number>5</number>
@@ -222,13 +176,13 @@
                </font>
               </property>
               <property name="contextMenuPolicy">
-               <enum>Qt::ActionsContextMenu</enum>
+               <enum>Qt::ContextMenuPolicy::ActionsContextMenu</enum>
               </property>
               <property name="frameShape">
-               <enum>QFrame::NoFrame</enum>
+               <enum>QFrame::Shape::NoFrame</enum>
               </property>
               <property name="frameShadow">
-               <enum>QFrame::Plain</enum>
+               <enum>QFrame::Shadow::Plain</enum>
               </property>
               <property name="lineWidth">
                <number>0</number>
@@ -240,16 +194,16 @@
                </size>
               </property>
               <property name="verticalScrollMode">
-               <enum>QAbstractItemView::ScrollPerPixel</enum>
+               <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
               </property>
               <property name="resizeMode">
-               <enum>QListView::Adjust</enum>
+               <enum>QListView::ResizeMode::Adjust</enum>
               </property>
               <property name="spacing">
                <number>5</number>
               </property>
               <property name="viewMode">
-               <enum>QListView::ListMode</enum>
+               <enum>QListView::ViewMode::ListMode</enum>
               </property>
               <property name="uniformItemSizes">
                <bool>false</bool>
@@ -266,11 +220,24 @@
              </widget>
             </item>
             <item>
+             <spacer name="verticalSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
              <layout class="QHBoxLayout" name="horizontalLayout">
               <item>
                <spacer name="horizontalSpacer_2">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -334,7 +301,7 @@
               <item>
                <spacer name="shellcodeSpacer">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -363,7 +330,7 @@
             <item>
              <layout class="QGridLayout" name="gridLayout_2">
               <property name="sizeConstraint">
-               <enum>QLayout::SetDefaultConstraint</enum>
+               <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
               </property>
               <property name="horizontalSpacing">
                <number>5</number>
@@ -420,13 +387,13 @@
                </font>
               </property>
               <property name="contextMenuPolicy">
-               <enum>Qt::ActionsContextMenu</enum>
+               <enum>Qt::ContextMenuPolicy::ActionsContextMenu</enum>
               </property>
               <property name="frameShape">
-               <enum>QFrame::NoFrame</enum>
+               <enum>QFrame::Shape::NoFrame</enum>
               </property>
               <property name="frameShadow">
-               <enum>QFrame::Plain</enum>
+               <enum>QFrame::Shadow::Plain</enum>
               </property>
               <property name="lineWidth">
                <number>0</number>
@@ -438,16 +405,16 @@
                </size>
               </property>
               <property name="verticalScrollMode">
-               <enum>QAbstractItemView::ScrollPerPixel</enum>
+               <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
               </property>
               <property name="resizeMode">
-               <enum>QListView::Adjust</enum>
+               <enum>QListView::ResizeMode::Adjust</enum>
               </property>
               <property name="spacing">
                <number>5</number>
               </property>
               <property name="viewMode">
-               <enum>QListView::ListMode</enum>
+               <enum>QListView::ViewMode::ListMode</enum>
               </property>
               <property name="uniformItemSizes">
                <bool>false</bool>
@@ -465,7 +432,7 @@
               <item>
                <spacer name="horizontalSpacer_3">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -512,9 +479,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QSvgWidget</class>
+   <class>ClickableSvgWidget</class>
    <extends>QWidget</extends>
-   <header>QSvgWidget</header>
+   <header>ClickableSvgWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

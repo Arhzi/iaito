@@ -3,17 +3,21 @@ TEMPLATE = app
 TARGET = iaito
 
 IAITO_VERSION_MAJOR = 5
-IAITO_VERSION_MINOR = 8
+IAITO_VERSION_MINOR = 9
 IAITO_VERSION_PATCH = 4
 
 CONFIG+=app_bundle
-LIBS+= -dead_strip
+# LIBS+= -dead_strip
 
 CONFIG += sdk_no_version_check
 
 unix:QMAKE_RPATHDIR += /usr/local/lib
 unix:QMAKE_LFLAGS_RPATH=
 unix:QMAKE_LFLAGS += "-Wl,-rpath,/usr/local/lib"
+
+QMAKE_CXXFLAGS += $$(CXXFLAGS)
+QMAKE_CFLAGS += $$(CFLAGS)
+QMAKE_LFLAGS += $$(LDFLAGS)
 
 # build with thread-sanitizer
 # unix:QMAKE_LFLAGS += "-fsanitize=thread"
@@ -101,8 +105,8 @@ INCLUDEPATH *= . core widgets dialogs common plugins menus
 
 win32 {
     # Generate debug symbols in release mode
-    QMAKE_CXXFLAGS_RELEASE += -Zi   # Compiler
-    QMAKE_LFLAGS_RELEASE += /DEBUG  # Linker
+# QMAKE_CXXFLAGS_RELEASE += -Zi   # Compiler
+# QMAKE_LFLAGS_RELEASE += /DEBUG  # Linker
 
     # Multithreaded compilation
     QMAKE_CXXFLAGS += -MP
@@ -323,6 +327,7 @@ SOURCES += \
     dialogs/XrefsDialog.cpp \
     core/MainWindow.cpp \
     common/Helpers.cpp \
+    common/TextEditDialog.cpp \
     common/Highlighter.cpp \
     common/MdHighlighter.cpp \
     common/DirectionalComboBox.cpp \
@@ -434,6 +439,8 @@ SOURCES += \
     common/Decompiler.cpp \
     common/R2GhidraCmdDecompiler.cpp \
     common/R2pdcCmdDecompiler.cpp \
+    common/R2DecaiDecompiler.cpp \
+    common/R2AnotesDecompiler.cpp \
     common/R2retdecDecompiler.cpp \
     menus/AddressableItemContextMenu.cpp \
     common/AddressableItemModel.cpp \
@@ -458,11 +465,13 @@ GRAPHVIZ_SOURCES = \
     widgets/GraphvizLayout.cpp
 
 HEADERS  += \
+    common/R2Shims.h \
     core/Iaito.h \
     core/IaitoCommon.h \
     core/IaitoDescriptions.h \
     dialogs/EditStringDialog.h \
     dialogs/WriteCommandsDialogs.h \
+    widgets/ClickableSvgWidget.h \
     widgets/DisassemblerGraphView.h \
     widgets/OverviewView.h \
     common/RichTextPainter.h \
@@ -477,6 +486,7 @@ HEADERS  += \
     dialogs/XrefsDialog.h \
     common/Helpers.h \
     core/MainWindow.h \
+    common/TextEditDialog.h \
     common/Highlighter.h \
     common/MdHighlighter.h \
     common/DirectionalComboBox.h \
@@ -593,6 +603,8 @@ HEADERS  += \
     common/SelectionHighlight.h \
     common/Decompiler.h \
     common/R2GhidraCmdDecompiler.h \
+    common/R2DecaiDecompiler.h \
+    common/R2AnotesDecompiler.h \
     common/R2pdcCmdDecompiler.h \
     common/R2retdecDecompiler.h \
     menus/AddressableItemContextMenu.h \
@@ -632,7 +644,7 @@ FORMS    += \
     dialogs/RemoteDebugDialog.ui \
     dialogs/NativeDebugDialog.ui \
     dialogs/XrefsDialog.ui \
-    dialogs/NewfileDialog.ui \
+    dialogs/NewFileDialog.ui \
     dialogs/InitialOptionsDialog.ui \
     dialogs/EditFunctionDialog.ui \
     core/MainWindow.ui \

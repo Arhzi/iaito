@@ -220,14 +220,25 @@ void ConsoleWidget::executeCommand(const QString &command)
     if (!commandTask.isNull()) {
         return;
     }
+    if (command == "clear" || command == "cls") {
+        ui->outputTextEdit->clear();
+	this->clear();
+        return;
+    }
     ui->r2InputLineEdit->setEnabled(false);
 
     QString cmd_line = "[" + RAddressString(Core()->getOffset()) + "]> " + command;
     addOutput(cmd_line);
 
     RVA oldOffset = Core()->getOffset();
+    bool isPiped = command.contains(">");
 #if MONOTHREAD
-    QString result = Core()->cmdHtml(command.toStdString().c_str());
+    QString result;
+    if (isPiped) {
+        result = Core()->cmd(command.toStdString().c_str());
+    } else {
+        result = Core()->cmdHtml(command.toStdString().c_str());
+    }
     if (oldOffset != Core()->getOffset()) {
         Core()->updateSeek();
     }
@@ -339,9 +350,7 @@ void ConsoleWidget::historyNext()
             if (lastHistoryPosition >= history.size()) {
                 lastHistoryPosition = history.size() - 1 ;
             }
-
-            --lastHistoryPosition;
-
+            lastHistoryPosition--;
             if (lastHistoryPosition >= 0) {
                 ui->r2InputLineEdit->setText(history.at(lastHistoryPosition));
             } else {
@@ -357,7 +366,6 @@ void ConsoleWidget::historyPrev()
         if (lastHistoryPosition >= history.size() - 1) {
             lastHistoryPosition = history.size() - 2;
         }
-
         ui->r2InputLineEdit->setText(history.at(++lastHistoryPosition));
     }
 }
@@ -430,6 +438,7 @@ void ConsoleWidget::historyAdd(const QString &input)
 
     invalidateHistoryPosition();
 }
+
 void ConsoleWidget::invalidateHistoryPosition()
 {
     lastHistoryPosition = invalidHistoryPos;
@@ -455,6 +464,13 @@ void ConsoleWidget::processQueuedOutput()
 #ifdef Q_OS_HAIKU
 #define O_ASYNC O_NONBLOCK
 #endif
+
+void ConsoleWidget::unredirectOutput()
+{
+	dup2(fileno(origStdin), 0);
+	dup2(fileno(origStdout), 1);
+	dup2(fileno(origStderr), 2);
+}
 
 void ConsoleWidget::redirectOutput()
 {

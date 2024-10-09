@@ -3,7 +3,9 @@
 
 #include <QDialog>
 #include <QListWidgetItem>
+#include <QSpacerItem>
 #include <memory>
+#include "../widgets/ClickableSvgWidget.h"
 
 namespace Ui {
 class NewFileDialog;
@@ -21,6 +23,7 @@ public:
 
 private slots:
     void on_loadFileButton_clicked();
+    void on_checkBox_FilelessOpen_clicked();
     void on_selectFileButton_clicked();
 
     void on_selectProjectsDirButton_clicked();
@@ -64,6 +67,9 @@ private:
     void loadFile(const QString &filename);
     void loadProject(const QString &project);
     void loadShellcode(const QString &shellcode, const int size);
+
+    void setDisableAndHideWidget(QWidget *w, bool disable_and_hide = true);
+    void setSpacerEnabled(QSpacerItem *s, bool enabled, int w = 10, int h = 10);
 
     static const int MaxRecentFiles = 5;
 };

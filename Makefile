@@ -19,8 +19,31 @@ endif
 ifeq ($(WANT_PYTHON_BINDINGS),1)
 QMAKE_FLAGS+=IAITO_ENABLE_PYTHON_BINDINGS=true
 endif
+QMAKE_FLAGS+=PREFIX=$(PREFIX)
 
 all: iaito
+
+CXX?=g++
+
+reset:
+	rm -rf ~/.config/radareorg/iaito.conf
+
+QTLIBS=$(shell grep "^LIBS" build/Makefile | cut -d = -f 2-)
+R2LIBS=$(shell pkg-config --cflags --libs r_core)
+R2_LIBEXT=$(shell r2 -H R2_LIBEXT)
+R2_USER_PLUGINS=$(shell r2 -H R2_USER_PLUGINS)
+
+plugin core_plugin: iaito
+	SUBLIBS=true $(CXX) build/*.o src/CorePlugin.cpp -shared -fPIC $(QTLIBS) $(R2LIBS) -o build/CorePlugin.$(R2_LIBEXT)
+	mkdir -p $(R2_USER_PLUGINS)
+	rm -f $(R2_USER_PLUGINS)/IaitoPlugin.$(R2_LIBEXT)
+	cp -f build/CorePlugin.$(R2_LIBEXT) $(R2_USER_PLUGINS)/IaitoPlugin.$(R2_LIBEXT)
+
+asan:
+	export CXXFLAGS=-fsanitize=address ; \
+	export CFLAGS=-fsanitize=address ; \
+	export LDFLAGS=-fsanitize=address ; \
+		$(MAKE) build && $(MAKE) -C build -j4
 
 clean:
 	rm -rf build
@@ -43,7 +66,7 @@ QMAKE=~/Qt/5.*/clang_64/bin/qmake
 endif
 
 iaito: build
-	$(MAKE) -C build -j4
+	$(MAKE) -C build
 
 build:
 	mkdir -p build
@@ -90,6 +113,9 @@ user-uninstall:
 
 run:
 	rarun2 libpath=$(shell r2 -H R2_LIBDIR) program=$(BIN)
+
+gdb:
+	gdb --args $(BIN)
 
 src/translations/README.md:
 	git clone https://github.com/radareorg/iaito-translations.git src/translations

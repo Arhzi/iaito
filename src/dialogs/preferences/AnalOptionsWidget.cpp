@@ -15,12 +15,52 @@ static const QHash<QString, QString> analBoundaries {
     {"raw", "Raw"},
     {"bin.section", "Current mapped section"},
     {"bin.sections", "All mapped sections"},
+    {"bin.sections.x", "All executable sections"},
+    {"bin.segments.x", "All executable segments"},
+    {"dbg.maps.x", "All executable debug maps"},
+#if 0
+-e anal.in=?
+block
+bin.segment
+bin.segments
+bin.segments.x
+bin.segments.r
+bin.section
+bin.sections
+bin.sections.rwx
+bin.sections.r
+bin.sections.rw
+bin.sections.rx
+bin.sections.wx
+bin.sections.x
+io.map
+io.maps
+io.maps.rwx
+io.maps.r
+io.maps.rw
+io.maps.rx
+io.maps.wx
+io.maps.x
+dbg.stack
+dbg.heap
+dbg.map
+dbg.maps
+dbg.maps.rwx
+dbg.maps.r
+dbg.maps.rw
+dbg.maps.rx
+dbg.maps.wx
+dbg.maps.x
+anal.fcn
+anal.bb
+#endif
 };
 
 AnalOptionsWidget::AnalOptionsWidget(PreferencesDialog *dialog)
     : QDialog(dialog),
       ui(new Ui::AnalOptionsWidget)
 {
+    setAttribute(Qt::WA_DeleteOnClose);
     ui->setupUi(this);
 
     checkboxes = {
@@ -43,10 +83,12 @@ AnalOptionsWidget::AnalOptionsWidget(PreferencesDialog *dialog)
         connect(confCheckbox.checkBox, &QCheckBox::stateChanged, this, [this, val, &cb]() { this->checkboxEnabler(&cb, val); });
     }
 
-    ui->analyzePushButton->setToolTip("Analyze the program using radare2's \"aaa\" command");
+    /*
+    ui->analyzePushButton->setToolTip("Analyze the program using radare2's `aaa` command");
     auto *mainWindow = new MainWindow(this);
     connect(ui->analyzePushButton, &QPushButton::clicked, mainWindow,
             &MainWindow::on_actionAnalyze_triggered);
+    */
     connect<void (QComboBox::*)(int)>(ui->analInComboBox, &QComboBox::currentIndexChanged, this,
                                       &AnalOptionsWidget::updateAnalIn);
     connect<void (QSpinBox::*)(int)>(ui->ptrDepthSpinBox, &QSpinBox::valueChanged, this,
@@ -96,7 +138,7 @@ void AnalOptionsWidget::createAnalInOptionsList()
     mapIter = analBoundaries.cbegin();
     ui->analInComboBox->blockSignals(true);
     ui->analInComboBox->clear();
-    for (; mapIter != analBoundaries.cend(); ++mapIter) {
+    for (; mapIter != analBoundaries.cend(); mapIter++) {
         ui->analInComboBox->addItem(mapIter.value(), mapIter.key());
     }
     ui->analInComboBox->blockSignals(false);

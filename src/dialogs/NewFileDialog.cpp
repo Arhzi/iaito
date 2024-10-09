@@ -2,7 +2,7 @@
 #include "core/MainWindow.h"
 #include "dialogs/NewFileDialog.h"
 #include "dialogs/AboutDialog.h"
-#include "ui_NewfileDialog.h"
+#include "ui_NewFileDialog.h"
 #include "common/Helpers.h"
 #include "common/HighDpiPixmap.h"
 
@@ -64,12 +64,16 @@ NewFileDialog::NewFileDialog(MainWindow *main) :
     ui->projectsListWidget->addAction(ui->actionRemove_project);
     ui->logoSvgWidget->load(Config()->getLogoFile());
 
+    setSpacerEnabled(ui->verticalSpacer, false);
     // radare2 does not seem to save this config so here we load this manually
     Core()->setConfig("dir.projects", Config()->getDirProjects());
 
     fillRecentFilesList();
     fillIOPluginsList();
     fillProjectsList();
+
+    connect(ui->logoSvgWidget, SIGNAL(clicked()), this, SLOT(on_aboutButton_clicked()));
+    ui->logoSvgWidget->setToolTip(tr("About Iaito"));
 
     // Set last clicked tab
     ui->tabWidget->setCurrentIndex(Config()->getNewFileLastClicked());
@@ -87,11 +91,31 @@ void NewFileDialog::on_loadFileButton_clicked()
     loadFile(ui->newFileEdit->text());
 }
 
+void NewFileDialog::on_checkBox_FilelessOpen_clicked()
+{
+    /*
+     * When we're not opening any file, we must hide all file-related widgets
+     */
+    bool disable_and_hide = !ui->checkBox_FilelessOpen->isChecked();
+    setSpacerEnabled(ui->verticalSpacer, !disable_and_hide);
+    QVector<QWidget*> widgets_to_hide = {
+        ui->recentsListWidget,
+        ui->ioPlugin,
+        ui->newFileEdit,
+        ui->newFileLabel,
+        ui->ioLabel,
+        ui->selectFileButton
+    };
+    for (QWidget* widget : widgets_to_hide) {
+        setDisableAndHideWidget(widget, disable_and_hide);
+    }
+}
+
 void NewFileDialog::on_selectFileButton_clicked()
 {
     QString currentDir = Config()->getRecentFolder();
-    const QString &fileName = QDir::toNativeSeparators(QFileDialog::getOpenFileName(this,
-                                                                                    tr("Select file"), currentDir));
+    auto res = QFileDialog::getOpenFileName(nullptr, tr("Select file"), currentDir, QString(), 0, QFILEDIALOG_FLAGS);
+    const QString &fileName = QDir::toNativeSeparators(res);
 
     if (!fileName.isEmpty()) {
         ui->newFileEdit->setText(fileName);
@@ -361,19 +385,26 @@ void NewFileDialog::fillIOPluginsList()
 
 void NewFileDialog::loadFile(const QString &filename)
 {
+    bool skipOpeningFile = ui->checkBox_FilelessOpen->isChecked();
     const QString &nativeFn = QDir::toNativeSeparators(filename);
     if (ui->ioPlugin->currentIndex() == 0 && !Core()->tryFile(nativeFn, false)
-            && !ui->checkBox_FilelessOpen->isChecked()) {
+            && !skipOpeningFile) {
         QMessageBox msgBox(this);
         msgBox.setText(tr("Select a new program or a previous one before continuing."));
         msgBox.exec();
         return;
     }
-    if (filename == "" || filename.endsWith("://")) {
+    if ((filename == "" || filename.endsWith("://")) && !skipOpeningFile) {
         QMessageBox::warning(this, tr("Error"), tr("Select a file before clicking this button"));
         return;
     }
 
+    if (skipOpeningFile) {
+        /* If we don't want to open a file just skip setting options and move to finalize */
+        main->finalizeOpen();
+        close();
+        return;
+    }
 
     // Add file to recent file list
     QSettings settings;
@@ -393,7 +424,7 @@ void NewFileDialog::loadFile(const QString &filename)
     ioFile += nativeFn;
     InitialOptions options;
     options.filename = ioFile;
-    main->openNewFile(options, ui->checkBox_FilelessOpen->isChecked());
+    main->openNewFile(options);
 
     close();
 }
@@ -414,6 +445,21 @@ void NewFileDialog::loadShellcode(const QString &shellcode, const int size)
     options.shellcode = shellcode;
     main->openNewFile(options);
     close();
+}
+
+void NewFileDialog::setDisableAndHideWidget(QWidget *w, bool disable_and_hide)
+{
+    w->setDisabled(disable_and_hide);
+    w->setVisible(disable_and_hide);
+}
+
+void NewFileDialog::setSpacerEnabled(QSpacerItem *s, bool enabled, int w, int h)
+{
+    if (enabled) {
+        s->changeSize(w, h, QSizePolicy::Expanding, QSizePolicy::Expanding);
+    } else {
+        s->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Fixed);
+    }
 }
 
 void NewFileDialog::on_tabWidget_currentChanged(int index)

@@ -54,6 +54,15 @@ DisassemblyContextMenu::DisassemblyContextMenu(QWidget *parent, MainWindow *main
         actionSetBits16(this),
         actionSetBits32(this),
         actionSetBits64(this),
+        actionSetColorRed(this),
+        actionSetColorMagenta(this),
+        actionSetColorBlue(this),
+        actionSetColorCyan(this),
+        actionSetColorGreen(this),
+        actionSetColorYellow(this),
+        actionSetColorGray(this),
+        actionSetColorBrown(this),
+        actionSetColorReset(this),
         actionContinueUntil(this),
         actionSetPC(this),
         actionAddBreakpoint(this),
@@ -84,6 +93,10 @@ DisassemblyContextMenu::DisassemblyContextMenu(QWidget *parent, MainWindow *main
     initAction(&actionAddComment, tr("Add Comment"),
                SLOT(on_actionAddComment_triggered()), getCommentSequence());
     addAction(&actionAddComment);
+
+    initAction(&actionSetProgramCounter, tr("Set Program Counter"),
+               SLOT(on_actionSetProgramCounter_triggered()));
+    addAction(&actionSetProgramCounter);
 
     initAction(&actionRename, tr("Rename or add flag"),
                SLOT(on_actionRename_triggered()), getRenameSequence());
@@ -116,6 +129,7 @@ DisassemblyContextMenu::DisassemblyContextMenu(QWidget *parent, MainWindow *main
     addSetBaseMenu();
 
     addSetBitsMenu();
+    addSetColorMenu();
 
     structureOffsetMenu = addMenu(tr("Structure offset"));
     connect(structureOffsetMenu, &QMenu::triggered,
@@ -222,6 +236,46 @@ void DisassemblyContextMenu::addSetBitsMenu()
     connect(&actionSetBits64, &QAction::triggered, this, [this] { setBits(64); });
 }
 
+void DisassemblyContextMenu::addSetColorMenu()
+{
+    setColorMenu = addMenu(tr("Set basic block color..."));
+
+    initAction(&actionSetColorRed, "red");
+    setColorMenu->addAction(&actionSetColorRed);
+    connect(&actionSetColorRed, &QAction::triggered, this, [this] { setColor("red"); });
+
+    initAction(&actionSetColorMagenta, "magenta");
+    setColorMenu->addAction(&actionSetColorMagenta);
+    connect(&actionSetColorMagenta, &QAction::triggered, this, [this] { setColor("magenta"); });
+
+    initAction(&actionSetColorBlue, "blue");
+    setColorMenu->addAction(&actionSetColorBlue);
+    connect(&actionSetColorBlue, &QAction::triggered, this, [this] { setColor("blue"); });
+
+    initAction(&actionSetColorCyan, "cyan");
+    setColorMenu->addAction(&actionSetColorCyan);
+    connect(&actionSetColorCyan, &QAction::triggered, this, [this] { setColor("cyan"); });
+
+    initAction(&actionSetColorGreen, "green");
+    setColorMenu->addAction(&actionSetColorGreen);
+    connect(&actionSetColorGreen, &QAction::triggered, this, [this] { setColor("green"); });
+
+    initAction(&actionSetColorYellow, "yellow");
+    setColorMenu->addAction(&actionSetColorYellow);
+    connect(&actionSetColorYellow, &QAction::triggered, this, [this] { setColor("yellow"); });
+
+    initAction(&actionSetColorGray, "gray");
+    setColorMenu->addAction(&actionSetColorGray);
+    connect(&actionSetColorGray, &QAction::triggered, this, [this] { setColor("gray"); });
+
+    initAction(&actionSetColorBrown, "brown");
+    setColorMenu->addAction(&actionSetColorBrown);
+    connect(&actionSetColorBrown, &QAction::triggered, this, [this] { setColor("brown"); });
+
+    initAction(&actionSetColorReset, "reset");
+    setColorMenu->addAction(&actionSetColorReset);
+    connect(&actionSetColorReset, &QAction::triggered, this, [this] { setColor(""); });
+}
 
 void DisassemblyContextMenu::addSetAsMenu()
 {
@@ -809,6 +863,11 @@ void DisassemblyContextMenu::on_actionAddComment_triggered()
     CommentsDialog::addOrEditComment(offset, this);
 }
 
+void DisassemblyContextMenu::on_actionSetProgramCounter_triggered()
+{
+    Core()->setRegister("PC", "$$");
+}
+
 void DisassemblyContextMenu::on_actionAnalyzeFunction_triggered()
 {
     bool ok;
@@ -928,20 +987,26 @@ void DisassemblyContextMenu::on_actionSetAsStringAdvanced_triggered()
         QMessageBox::critical(this->window(), tr("Wrong address"), tr("Can't edit string at this address"));
         return;
     }
-    IaitoCore::StringTypeFormats coreStringType = IaitoCore::StringTypeFormats::None;
+    IaitoCore::StringTypeFormats coreStringType = IaitoCore::StringTypeFormats::s_None;
 
     const auto strSize = dialog.getStringSizeValue();
     const auto strType = dialog.getStringType();
     switch(strType)
     {
-    case EditStringDialog::StringType::Auto:
-        coreStringType = IaitoCore::StringTypeFormats::None;
+    case EditStringDialog::StringType::s_Auto:
+        coreStringType = IaitoCore::StringTypeFormats::s_None;
         break;
-    case EditStringDialog::StringType::ASCII_LATIN1:
-        coreStringType = IaitoCore::StringTypeFormats::ASCII_LATIN1;
+    case EditStringDialog::StringType::s_ASCII_LATIN1:
+        coreStringType = IaitoCore::StringTypeFormats::s_ASCII_LATIN1;
         break;
-    case EditStringDialog::StringType::UTF8:
-        coreStringType = IaitoCore::StringTypeFormats::UTF8;
+    case EditStringDialog::StringType::s_UTF8:
+        coreStringType = IaitoCore::StringTypeFormats::s_UTF8;
+        break;
+    case EditStringDialog::StringType::s_UTF16:
+        coreStringType = IaitoCore::StringTypeFormats::s_UTF16;
+        break;
+    case EditStringDialog::StringType::s_PASCAL:
+        coreStringType = IaitoCore::StringTypeFormats::s_PASCAL;
         break;
     };
 
@@ -1042,6 +1107,13 @@ void DisassemblyContextMenu::setBase(QString base)
 void DisassemblyContextMenu::setBits(int bits)
 {
     Core()->setCurrentBits(bits, offset);
+}
+void DisassemblyContextMenu::setColor(const char *color)
+{
+	if (*color)
+    Core()->cmd(QString ("abc ") + QString (color));
+	else
+    Core()->cmd("abc-");
 }
 
 void DisassemblyContextMenu::setToData(int size, int repeat)

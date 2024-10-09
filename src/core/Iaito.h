@@ -31,6 +31,11 @@ class R2TaskDialog;
 #include "common/Helpers.h"
 #include "dialogs/R2TaskDialog.h"
 
+#if __APPLE__ && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#define QFILEDIALOG_FLAGS QFileDialog::DontUseNativeDialog
+#else
+#define QFILEDIALOG_FLAGS ((QFileDialog::Option) 0)
+#endif
 #define Core() (IaitoCore::instance())
 
 #if R2_VERSION_MAJOR == 5 && R2_VERSION_MINOR == 2 && R2_VERSION_PATCH == 0
@@ -47,13 +52,15 @@ class IAITO_EXPORT IaitoCore: public QObject
     friend class R2Task;
 
 public:
+    RCore *core_ = nullptr;
     explicit IaitoCore(QObject *parent = nullptr);
     ~IaitoCore();
     static IaitoCore *instance();
 
     void initialize(bool loadPlugins = true);
-    void loadIaitoRC();
+    void loadIaitoRC(int n);
     void loadDefaultIaitoRC();
+    void loadSecondaryIaitoRC();
     QDir getIaitoRCDefaultDirectory() const;
     
     AsyncTaskManager *getAsyncTaskManager() { return asyncTaskManager; }
@@ -91,7 +98,13 @@ public:
      * @return the output of the command
      */
     QString cmdRaw(const char *cmd);
-    void cmdRaw0(const QString &s);
+    /**
+     * @brief Execute a radare2 command \a cmd.  By nature, the API
+     * is executing raw commands, and thus ignores multiple commands and overcome command injections.
+     * @param cmd - a raw command to execute. Passing multiple commands (e.g "px 5; pd 7 && pdf") will result in them treated as arguments to first command.
+     * @return the core->rc in boolean mode, this is, true == command executed successfully, false == execution failed
+     */
+    bool cmdRaw0(const QString &s);
 
     /**
      * @brief a wrapper around cmdRaw(const char *cmd,).
@@ -211,7 +224,7 @@ public:
 
     /* Code/Data */
     void setToCode(RVA addr);
-    enum class StringTypeFormats { None, ASCII_LATIN1, UTF8 };
+    enum class StringTypeFormats { s_None, s_ASCII_LATIN1, s_UTF8, s_UTF16, s_PASCAL };
     /**
      * @brief Adds string at address
      * That function calls the 'Cs' command
@@ -219,7 +232,7 @@ public:
      * \param size The size of string
      * \param type The type of string
      */
-    void setAsString(RVA addr, int size = 0, StringTypeFormats type = StringTypeFormats::None);
+    void setAsString(RVA addr, int size = 0, StringTypeFormats type = StringTypeFormats::s_None);
     /**
      * @brief Removes string at address
      * That function calls the 'Cs-' command
@@ -726,7 +739,6 @@ private:
      * Internal reference to the RCore.
      * NEVER use this directly! Always use the CORE_LOCK(); macro and access it like core->...
      */
-    RCore *core_ = nullptr;
 #if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
     QMutex coreMutex;
 #else
@@ -749,7 +761,7 @@ private:
     QSharedPointer<R2Task> debugTask;
     R2TaskDialog *debugTaskDialog;
     
-    QVector<QString> getIaitoRCFilePaths() const;
+    QVector<QString> getIaitoRCFilePaths(int n) const;
 };
 
 class IAITO_EXPORT RCoreLocked

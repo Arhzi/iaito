@@ -43,6 +43,7 @@ private slots:
     void on_actionCopy_triggered();
     void on_actionCopyAddr_triggered();
     void on_actionAddComment_triggered();
+    void on_actionSetProgramCounter_triggered();
     void on_actionAnalyzeFunction_triggered();
     void on_actionRename_triggered();
     void on_actionSetFunctionVarTypes_triggered();
@@ -123,7 +124,7 @@ private:
     QAction *copySeparator;
     QAction actionCopyAddr;
 
-
+    QAction actionSetProgramCounter;
     QAction actionAddComment;
     QAction actionAnalyzeFunction;
     QAction actionEditFunction;
@@ -155,6 +156,17 @@ private:
     QAction actionSetBits16;
     QAction actionSetBits32;
     QAction actionSetBits64;
+
+    QMenu *setColorMenu;
+    QAction actionSetColorRed;
+    QAction actionSetColorMagenta;
+    QAction actionSetColorGreen;
+    QAction actionSetColorBlue;
+    QAction actionSetColorCyan;
+    QAction actionSetColorYellow;
+    QAction actionSetColorGray;
+    QAction actionSetColorBrown;
+    QAction actionSetColorReset;
 
     QMenu *debugMenu;
     QAction actionContinueUntil;
@@ -194,8 +206,10 @@ private:
     void setBase(QString base);
     void setToData(int size, int repeat = 1);
     void setBits(int bits);
+    void setColor(const char *color);
 
     void addSetBaseMenu();
+    void addSetColorMenu();
     void addSetBitsMenu();
     void addSetAsMenu();
     void addSetToDataMenu();

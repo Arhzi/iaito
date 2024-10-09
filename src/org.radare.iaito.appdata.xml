@@ -1,19 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<component type="desktop">
+<component type="desktop-application">
   <id>org.radare.iaito</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0</project_license>
-  <name>iaito</name>
-  <summary>A Qt and C++ GUI for radare2 reverse engineering framework</summary>
+  <name>Iaito</name>
+  <summary>GUI for radare2</summary>
   <description>
-    <p>iaito is a free and open-source GUI for radare2. Willing to create an advanced, customizable and free reverse engineering framework.</p>
+    <p>Iaito is the official graphical interface for radare2, a libre reverse engineering framework.</p>
+    <ul>
+      <li>Focus on simplicity, parity with commands, keybindings and r2-style workflows.</li>
+      <li>Use r2 plugins (f.ex: no need for r2ghidra-iaito plugin if r2ghidra is installed)</li>
+      <li>Aims to cover other radare2 features, not just a disassembler (forensics, networking, bindiffing, solvers, ...).</li>
+    </ul>
   </description>
   <launchable type="desktop-id">org.radare.iaito.desktop</launchable>
   <content_rating type="oars-1.1"/>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/radareorg/iaito/master/screenshot.png</image>
-      <caption>Main UI</caption>
+      <image>https://raw.githubusercontent.com/radareorg/iaito/master/screenshots/kde-overview.png</image>
+      <caption>File overview</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/radareorg/iaito/master/screenshots/kde-disassembly.png</image>
+      <caption>Binary disassembly</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/radareorg/iaito/master/screenshots/kde-graph.png</image>
+      <caption>Assembly graph</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/radareorg/iaito/master/screenshots/kde-dark.png</image>
+      <caption>Dark Theme</caption>
     </screenshot>
   </screenshots>
 
@@ -21,10 +38,59 @@
   <url type="bugtracker">https://github.com/radareorg/iaito/issues</url>
   <url type="contact">https://github.com/radareorg/iaito#help</url>
   <url type="vcs-browser">https://github.com/radareorg/iaito</url>
-  <update_contact>pancake</update_contact>
-  <developer_name>radare2</developer_name>
+  <developer id="org.radare">
+    <name>radare</name>
+  </developer>
   <releases>
-    <release version="5.8.4" date="2023-3-15">
+    <release version="5.9.4" date="2024-08-08">
+      <description>
+	<p>Better default analysis settings</p>
+	<p>Change font size using control+mouse wheel in disasm view</p>
+	<p>Use Po/Ps to save/open projects</p>
+	<p>Choose more colors for the basic blocks</p>
+	<p>Support pascal and utf16 string types</p>
+	<p>Fix address formatting bugs in WIndows</p>
+	<p>Sync with r2-5.9.4</p>
+      </description>
+    </release>
+    <release version="5.9.2" date="2024-05-24">
+      <description>
+        <p>Add macos-arm64 builds in the CI</p>
+        <p>Honor Ps/Po error code when saving/loading projects and show proper error message</p>
+	<p>Zoom font size with control+wheel in the disassembly widget</p>
+	<p>Initial r2ui ui command to script the GUI</p>
+	<p>Sync with r2-5.9.2</p>
+      </description>
+    </release>
+    <release version="5.9.0" date="2024-03-31">
+      <description>
+        <p>Stability fixes after lots of testing</p>
+        <p>Sync with r2-5.9, stay source compatible with 5.8</p>
+      </description>
+    </release>
+    <release version="5.8.8" date="2023-06-20">
+      <description>
+        <p>Fix startup crash caused by UB</p>
+        <p>Fix crash when loading Settings</p>
+        <p>Show error instead of silently closing when the file cannot be open</p>
+        <p>Resolve color themes from other versions of r2</p>
+        <p>Analysis settings have more configurable boundaries</p>
+        <p>Remove iaito plugins from the UI, only show r2 ones</p>
+        <p>Add separate startup (per-session) and onload scripts (per-file)</p>
+        <p>Add option to export the disassembly to a text file</p>
+        <p>QMake now obeys CFLAGS/LDFLAGS and --prefix from configure</p>
+        <p>In sync with r2-5.8.x, but works with 5.8.9 too</p>
+      </description>
+    </release>
+    <release version="5.8.6" date="2023-03-21">
+      <description>
+        <p>Build fixes</p>
+        <p>Disable debugger projects</p>
+        <p>Better qt6 support</p>
+        <p>File selection is required to fix a crash</p>
+      </description>
+    </release>
+    <release version="5.8.4" date="2023-03-15">
       <description>
         <p>Complete port to Qt6</p>
         <p>Fix the empty import widget</p>
@@ -33,7 +99,7 @@
         <p>Use R_LOG APIs instead of eprintf calls</p>
       </description>
     </release>
-    <release version="5.8.2" date="2023-1-1">
+    <release version="5.8.2" date="2023-01-01">
       <description>
         <p>Alphabetically sort io and arch comboboxes</p>
         <p>Fix assert in release builds</p>
@@ -51,7 +117,7 @@
     <release version="5.7.8" date="2022-10-26">
       <description>
         <p>Add flathub information in README</p>
-        <p>remove duplicate StartupNotify=true</p>
+        <p>Remove duplicate StartupNotify=true</p>
         <p>Update translation install method</p>
         <p>Install the manpage</p>
         <p>Disable translations submodule</p>

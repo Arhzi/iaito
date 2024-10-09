@@ -3,7 +3,6 @@
 #include "core/Iaito.h"
 #include "dialogs/RemoteDebugDialog.h"
 
-#include <QAction>
 
 class MainWindow;
 class QToolBar;
@@ -18,6 +17,7 @@ public:
 
     void addToToolBar(QToolBar *toolBar);
 
+    QAction *rarunProfile;
     QAction *actionStart;
     QAction *actionStartRemote;
     QAction *actionStartEmul;
@@ -41,6 +41,7 @@ public:
     QString continueLabel;
     QString restartDebugLabel;
     QString startDebugLabel;
+    QString rarunProfileLabel;
 
     // Stop and Detach interchange during runtime
     QIcon detachIcon;
@@ -64,6 +65,7 @@ private:
 private slots:
     void continueUntilMain();
     void startDebug();
+    void editRarunProfile();
     void attachProcessDialog();
     void attachProcess(int pid);
     void attachRemoteDialog();

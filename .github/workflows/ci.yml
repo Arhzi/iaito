@@ -1,7 +1,7 @@
 name: iaito CI
 
 env:
-  R2V: 5.8.4
+  R2V: 5.9.4
 
 on:
   push:
@@ -15,13 +15,13 @@ jobs:
   acr-linux-r2git:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8.x
+        python-version: 3.11.x
     - name: apt dependencies
       run: |
         sudo apt-get update
@@ -37,20 +37,16 @@ jobs:
     - name: packaging
       run: |
         make -j -C dist/debian
-    - uses: actions/upload-artifact@v3
-      with:
-        name: iaito-amd64.deb
-        path: dist/debian/*/*.deb
   acr-linux:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
-    - uses: actions/setup-python@v1
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8.x
+        python-version: 3.11.x
     - name: apt dependencies
       run: |
         sudo apt-get update
@@ -69,26 +65,28 @@ jobs:
     - name: packaging
       run: |
         make -C dist/debian
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: iaito-amd64.deb
         path: dist/debian/*/*.deb
-  acr-macos:
-    runs-on: macos-latest
+  acr-macos-x64:
+    runs-on: macos-12
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
-    - uses: actions/setup-python@v1
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8.x
+        python-version: 3.11.x
+    - name: uname
+      run: uname -a
     - name: homebrew dependencies
       run: |
-        brew update
-        brew install pkg-config qt@5
+        brew update || true
+        brew install pkg-config qt@5 || true
         brew unlink qt@5 || true
-        brew link --force qt@5
+        brew link --force qt@5 || true
         pip3 install meson
         pip3 install ninja
     - name: install r2
@@ -107,10 +105,50 @@ jobs:
     - name: packaging
       run: |
         make -C dist/macos
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
-        name: iaito-mac-amd64.zip
-        path: dist/macos/iaito*.zip
+        name: iaito-x64.dmg
+        path: dist/macos/iaito.dmg
+  acr-macos-m1:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: false # 'recursive' 'true' or 'false'
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: 3.11.x
+    - name: uname
+      run: uname -a
+    - name: homebrew dependencies
+      run: |
+        brew update || true
+        brew install pkg-config qt@5 || true
+        brew unlink qt@5 || true
+        brew link --force qt@5 || true
+        pip3 install meson
+        pip3 install ninja
+    - name: install r2
+      run: |
+        wget -q https://github.com/radareorg/radare2/releases/download/${{env.R2V}}/radare2-m1-${{env.R2V}}.pkg
+        sudo installer -pkg *.pkg -target /
+    - name: build iaito
+      run: |
+        export PATH="/usr/local/opt/qt@5/bin:$PATH"
+        export PATH="/opt/homebrew/opt/qt@5/bin:$PATH" # doesnt seems to be necessary
+        export LDFLAGS="-L/usr/local/opt/qt@5/lib"
+        export CPPFLAGS="-I/usr/local/opt/qt@5/include"
+        export PKG_CONFIG_PATH="/usr/local/opt/qt@5/lib/pkgconfig"
+        ./configure
+        make -j4
+    - name: packaging
+      run: |
+        make -C dist/macos
+    - uses: actions/upload-artifact@v4
+      with:
+        name: iaito-m1.dmg
+        path: dist/macos/iaito.dmg
   meson:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -123,7 +161,7 @@ jobs:
       # Prevent one job from pausing the rest
       fail-fast: false
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false # 'recursive' 'true' or 'false'
         persist-credentials: false
@@ -137,17 +175,17 @@ jobs:
         sudo apt install -y qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
     - name: install r2
       run: git clone --depth=1 https://github.com/radareorg/radare2 r2git && CFLAGS=-O0 r2git/sys/install.sh
-    - uses: actions/setup-python@v1
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: homebrew dependencies
       if: contains(matrix.os, 'macos')
       run: |
         brew update --preinstall # temporary workaround for https://github.com/Homebrew/homebrew-bundle/issues/751
-        brew install coreutils pkg-config
-        brew install pkg-config qt@5
+        brew install coreutils pkg-config || true
+        brew install pkg-config qt@5 || true
         brew unlink qt@5 || true
-        brew link --force qt@5
+        brew link --force qt@5 || true
         pip3 install meson
         pip3 install ninja
     - name: macos build
@@ -164,7 +202,7 @@ jobs:
   w64-meson:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false
         persist-credentials: false
@@ -172,9 +210,9 @@ jobs:
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
-#    - uses: actions/setup-python@v1
+#    - uses: actions/setup-python@v5
 #      with:
-#        python-version: 3.8.x
+#        python-version: 3.11.x
 #    - name: Prepare Qt
 #      working-directory: build
 #      shell: cmd
@@ -188,13 +226,13 @@ jobs:
       run: |
         pip install ninja meson wget
         choco install zip
-#    - name: install r2
-#      shell: bash
-#      run: |
-#        python -m wget https://github.com/radareorg/radare2/releases/download/${{env.R2V}}/radare2-${{env.R2V}}-w64.zip -o r2.zip
-#        unzip r2.zip
-#        mv radare2-${{env.R2V}}-w64 radare2
-#        pwd
+    - name: install r2
+      shell: bash
+      run: |
+        python -m wget https://github.com/radareorg/radare2/releases/download/${{env.R2V}}/radare2-${{env.R2V}}-w64.zip -o r2.zip
+        unzip r2.zip
+        mv radare2-${{env.R2V}}-w64 radare2
+        pwd
     - name: w64-make
       shell: cmd
       run: |
@@ -202,18 +240,21 @@ jobs:
         set PATH=%CD%\r2_dist\bin;%PATH%
         call preconfigure.bat
         call configure.bat
-        call make.bat
+        make.bat
+    - name: dist
+      shell: cmd
+      run: |
         zip -r iaito.zip iaito
         dir /s
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: iaito.exe
         path: iaito\iaito.exe
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: iaito.zip
         path: iaito.zip
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.PACKAGE_NAME }}
         path: build/${{ env.PACKAGE_NAME }}
@@ -225,12 +266,13 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag }}
     needs:
       - acr-linux
-      - acr-macos
+      - acr-macos-m1
+      - acr-macos-x64
       - w64-meson
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Download all git history and tags
       - name: Check if is a release
@@ -243,18 +285,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Download all git history and tags
       - name: Extract version
-        run: echo "branch=`./configure -qV`" >> $GITHUB_OUTPUT
+        run: echo "string=`./configure -qV`" >> $GITHUB_OUTPUT
         id: version
       - name: Prepare release notes
-        run: echo Release > ./RELEASE_NOTES.md
+        run: ./scripts/release-notes.sh | tee ./RELEASE_NOTES.md
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: dist/artifacts
+      - name: Display structure of downloaded files
+        run: find dist/artifacts
       - name: Create GitHub release
         id: create_release
         uses: actions/create-release@v1
@@ -262,40 +306,54 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.check_release.outputs.tag_name }}
-          release_name: ${{ steps.version.outputs.branch }}
+          release_name: ${{ steps.version.outputs.string }}
           body_path: ./RELEASE_NOTES.md
           draft: false
           prerelease: false
-  publish:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.check_release.outputs.is_release == 'yes' }}
-    needs:
-      - release
-    runs-on: ubuntu-latest
-    steps:
+      - name: Prepare release notes
+        run: ./scripts/release-notes.sh | tee ./RELEASE_NOTES.md
       - name: Upload Linux asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/artifacts/linux-acr/iaito-amd64.deb
-          asset_name: iaito_${{ steps.version.outputs.branch }}_amd64.deb
+          asset_path: dist/artifacts/iaito-amd64.deb/iaito/iaito_${{ steps.version.outputs.string }}_amd64.deb
+          asset_name: iaito_${{ steps.version.outputs.string }}_amd64.deb
           asset_content_type: application/vnd.debian.binary-package
-      - name: Upload macOS asset (BROKEN)
+      - name: Upload macOS x64 asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/artifacts/acr-macos/iaito-${{ steps.version.outputs.branch }}-macos.zip
-          asset_name: iaito-${{ steps.version.outputs.branch }}-macos.zip
+          asset_path: dist/artifacts/iaito-x64.dmg/iaito.dmg
+          asset_name: iaito_${{ steps.version.outputs.string }}_x64.dmg
+          asset_content_type: application/vnd.debian.binary-package
+      - name: Upload macOS m1 asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artifacts/iaito-m1.dmg/iaito.dmg
+          asset_name: iaito_${{ steps.version.outputs.string }}_m1.dmg
+          asset_content_type: application/vnd.debian.binary-package
+      - name: Upload Windows QtDeploy asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artifacts/iaito.zip/iaito.zip
+          asset_name: iaito-${{ steps.version.outputs.string }}-w64.zip
           asset_content_type: application/zip
-      - name: Upload Windows asset (BROKEN)
+      - name: Upload Windows executable
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/artifacts/w64-meson/iaito-${{ steps.version.outputs.branch }}-w64.zip
-          asset_name: iaito-${{ steps.version.outputs.branch }}-w64.zip
+          asset_path: dist/artifacts/iaito.exe/iaito.exe
+          asset_name: iaito-${{ steps.version.outputs.string }}.exe
           asset_content_type: application/zip

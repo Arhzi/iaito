@@ -18,8 +18,7 @@ ImportsModel::ImportsModel(QList<ImportDescription> *imp, QObject *parent)
 
 int ImportsModel::rowCount(const QModelIndex &parent) const
 {
-	return !parent.isValid() ? imports->count() : 0;
-	//return imports != NULL ? imports->count() : 0;
+	return imports->count();
 }
 
 int ImportsModel::columnCount(const QModelIndex &) const
@@ -33,8 +32,11 @@ QVariant ImportsModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case Qt::ForegroundRole:
         if (index.column() < ImportsModel::ColumnCount) {
+            // Blue color for unsafe functions
+            if (thread_banned.match(imp.name).hasMatch())
+                return Config()->getColor("gui.item_thread_unsafe");
             // Red color for unsafe functions
-            if (banned.match(imp.name).hasMatch())
+            if (unsafe_banned.match(imp.name).hasMatch())
                 return Config()->getColor("gui.item_unsafe");
             // Grey color for symbols at offset 0 which can only be filled at runtime
             if (imp.plt == 0)
@@ -48,7 +50,10 @@ QVariant ImportsModel::data(const QModelIndex &index, int role) const
         case ImportsModel::TypeColumn:
             return imp.type;
         case ImportsModel::SafetyColumn:
-            return banned.match(imp.name).hasMatch() ? tr("Unsafe") : QStringLiteral("");
+	    if ((thread_banned.match(imp.name)).hasMatch()) {
+		    return tr("Globals");
+	    }
+            return unsafe_banned.match(imp.name).hasMatch() ? tr("Unsafe") : QStringLiteral("");
         case ImportsModel::LibraryColumn:
             return imp.libname;
         case ImportsModel::NameColumn:
@@ -124,6 +129,16 @@ bool ImportsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) con
     return import.name.contains(FILTER_REGEX);
 }
 
+static int mv(ImportsModel *model, QString name) {
+	if (model->thread_banned.match(name).hasMatch()) {
+		return 1;
+	}
+	if (model->unsafe_banned.match(name).hasMatch()) {
+		return 2;
+	}
+	return 3;
+}
+
 bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
     if (!left.isValid() || !right.isValid())
@@ -141,7 +156,12 @@ bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     case ImportsModel::TypeColumn:
         return leftImport.type < rightImport.type;
     case ImportsModel::SafetyColumn:
-        break;
+	{
+		ImportsModel *model = (ImportsModel*)left.model(); // ->sourceModel();
+            int a = mv(model, leftImport.name);
+            int b = mv(model, rightImport.name);
+	    return a < b;
+	}
     case ImportsModel::LibraryColumn:
         if (leftImport.libname != rightImport.libname)
             return leftImport.libname < rightImport.libname;

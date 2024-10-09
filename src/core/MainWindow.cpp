@@ -118,7 +118,7 @@ MainWindow::MainWindow(QWidget *parent) :
     core(Core()),
     ui(new Ui::MainWindow)
 {
-    tabsOnTop = false;
+    tabsOnTop = true; // default option
     configuration = Config();
 
     initUI();
@@ -134,7 +134,7 @@ void MainWindow::initUI()
 
     // Initialize context menu extensions for plugins
     disassemblyContextMenuExtensions = new QMenu(tr("Plugins"), this);
-    addressableContextMenuExtensions = new QMenu(tr("Plugins"), this);
+    addressableContextMenuExtensions = new QMenu(tr("Plugins"), this); // XXX both plugins?
 
     connect(ui->actionExtraDecompiler, &QAction::triggered, this, &MainWindow::addExtraDecompiler);
     connect(ui->actionExtraGraph, &QAction::triggered, this, &MainWindow::addExtraGraph);
@@ -183,14 +183,9 @@ void MainWindow::initUI()
     connect(ui->actionZoomReset, &QAction::triggered, this, &MainWindow::onZoomReset);
 
     connect(core, &IaitoCore::projectSaved, this, &MainWindow::projectSaved);
-
     connect(core, &IaitoCore::toggleDebugView, this, &MainWindow::toggleDebugView);
-
-    connect(core, &IaitoCore::newMessage,
-            this->consoleDock, &ConsoleWidget::addOutput);
-    connect(core, &IaitoCore::newDebugMessage,
-            this->consoleDock, &ConsoleWidget::addDebugOutput);
-
+    connect(core, &IaitoCore::newMessage, this->consoleDock, &ConsoleWidget::addOutput);
+    connect(core, &IaitoCore::newDebugMessage, this->consoleDock, &ConsoleWidget::addDebugOutput);
     connect(core, &IaitoCore::showMemoryWidgetRequested,
             this, static_cast<void(MainWindow::*)()>(&MainWindow::showMemoryWidget));
 
@@ -229,7 +224,7 @@ void MainWindow::initUI()
 
     connect(ui->actionSaveLayout, &QAction::triggered, this, &MainWindow::saveNamedLayout);
     connect(ui->actionManageLayouts, &QAction::triggered, this, &MainWindow::manageLayouts);
-    connect(ui->actionDocumentation, &QAction::triggered, this, &MainWindow::documentationClicked);
+    connect(ui->actionWebsite, &QAction::triggered, this, &MainWindow::websiteClicked);
 
     /* Setup plugins interfaces */
     const auto &plugins = Plugins()->getPlugins();
@@ -259,7 +254,7 @@ void MainWindow::initUI()
     readSettings();
 
     // Display tooltip for the Analyze Program action
-    ui->actionAnalyze->setToolTip("Analyze the program");
+    ui->actionAnalyze->setToolTip("Run the analysis");
     ui->menuFile->setToolTipsVisible(true);
 }
 
@@ -280,6 +275,8 @@ void MainWindow::initToolBar()
     // Debug menu
     auto debugViewAction = ui->menuDebug->addAction(tr("View"));
     debugViewAction->setMenu(ui->menuAddDebugWidgets);
+    ui->menuDebug->addSeparator();
+    ui->menuDebug->addAction(debugActions->rarunProfile);
     ui->menuDebug->addSeparator();
     ui->menuDebug->addAction(debugActions->actionStart);
     ui->menuDebug->addAction(debugActions->actionStartEmul);
@@ -522,6 +519,21 @@ void MainWindow::addMenuFileAction(QAction *action)
     ui->menuFile->addAction(action);
 }
 
+void MainWindow::openCurrentCore(InitialOptions &options, bool skipOptionsDialog)
+{
+	RCore *core = iaitoPluginCore ();
+	if (core == nullptr) {
+		return;
+	}
+	// filename taken from r_core
+	options.filename = r_core_cmd_strf (core, "i~^file[1]");
+	setFilename(options.filename);
+
+	finalizeOpen();
+	/* Show analysis options dialog */
+	// displayInitialOptionsDialog(options, skipOptionsDialog);
+}
+
 void MainWindow::openNewFile(InitialOptions &options, bool skipOptionsDialog)
 {
     setFilename(options.filename);
@@ -701,7 +713,18 @@ void MainWindow::setFilename(const QString &fn)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    RCore *kore = iaitoPluginCore();
+    if (kore != nullptr) {
+	// TODO: restore configs :)
+        consoleDock->unredirectOutput();
+	// qApp->quit();
+	r_config_set_i (kore->config, "scr.color", 2);
+	r_config_set_i (kore->config, "scr.html", 0);
+        QMainWindow::closeEvent(event);
+	return;
+    }
     if (this->filename == "") {
+        QMainWindow::closeEvent(event);
         return;
     }
 
@@ -711,6 +734,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->ignore();
         return;
     }
+
 
     QMessageBox::StandardButton ret = QMessageBox::question(this, APPNAME,
                                                             tr("Do you really want to exit?\nSave your project before closing!"),
@@ -758,7 +782,7 @@ void MainWindow::readSettings()
 
     responsive = settings.value("responsive").toBool();
     lockDocks(settings.value("panelLock").toBool());
-    tabsOnTop = settings.value("tabsOnTop").toBool();
+    tabsOnTop = settings.value("tabsOnTop", true).toBool();
     setTabLocation();
     bool dockGroupedDragging = settings.value("docksGroupedDragging", false).toBool();
     ui->actionGrouped_dock_dragging->setChecked(dockGroupedDragging);
@@ -1490,8 +1514,8 @@ void MainWindow::on_actionRun_Script_triggered()
     dialog.setViewMode(QFileDialog::Detail);
     dialog.setDirectory(QDir::home());
 
-    const QString &fileName = QDir::toNativeSeparators(dialog.getOpenFileName(this,
-                                                                              tr("Select radare2 script")));
+    auto fname = dialog.getOpenFileName(this, tr("Select radare2 script"), QString(), QString(), 0, QFILEDIALOG_FLAGS);
+    const QString &fileName = QDir::toNativeSeparators(fname);
     if (fileName.isEmpty()) // Cancel was pressed
         return;
 
@@ -1596,7 +1620,7 @@ void MainWindow::on_actionIssue_triggered()
     openIssue();
 }
 
-void MainWindow::documentationClicked()
+void MainWindow::websiteClicked()
 {
     QDesktopServices::openUrl(QUrl("https://www.radare.org"));
 }
@@ -1677,6 +1701,8 @@ void MainWindow::on_actionExport_as_code_triggered()
     cmdMap[filters.last()] = "pca";
     filters << tr(".bytes with instructions in comments (*.txt)");
     cmdMap[filters.last()] = "pcA";
+    filters << tr("Disassembly of the current Section (*.asm)");
+    cmdMap[filters.last()] = "pD $SS@e:asm.lines=0@$$@e:emu.str=true@e:scr.color=0";
 
     QFileDialog dialog(this, tr("Export as code"));
     dialog.setAcceptMode(QFileDialog::AcceptSave);
@@ -1692,13 +1718,22 @@ void MainWindow::on_actionExport_as_code_triggered()
         qWarning() << "Can't open file";
         return;
     }
-    TempConfig tempConfig;
-    tempConfig.set("io.va", false);
+    bool pamode = true;
     QTextStream fileOut(&file);
     QString &cmd = cmdMap[dialog.selectedNameFilter()];
-
-    // Use cmd because cmdRaw would not handle such input
-    fileOut << Core()->cmd(cmd + " $s @ 0");
+    if (cmd.contains("@")) {
+	    pamode = false;
+    }
+    if (pamode) {
+	    TempConfig tempConfig; // TODO Use RConfigHold
+	    tempConfig.set("io.va", false);
+	    QString &cmd = cmdMap[dialog.selectedNameFilter()];
+	    // Use cmd because cmdRaw would not handle such input
+	    fileOut << Core()->cmd(cmd + " $s @ 0");
+    } else {
+	    // Use cmd because cmdRaw would not handle such input
+	    fileOut << Core()->cmd(cmd);
+    }
 }
 
 void MainWindow::on_actionGrouped_dock_dragging_triggered(bool checked)

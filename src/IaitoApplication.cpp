@@ -5,6 +5,8 @@
 #include "R2GhidraCmdDecompiler.h"
 #include "R2pdcCmdDecompiler.h"
 #include "R2retdecDecompiler.h"
+#include "R2DecaiDecompiler.h"
+#include "R2AnotesDecompiler.h"
 #include "IaitoConfig.h"
 #include "common/Decompiler.h"
 #include "common/ResourcePaths.h"
@@ -61,11 +63,12 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
     // Setup application information
     setApplicationVersion(IAITO_VERSION_FULL);
     setWindowIcon(QIcon(":/img/iaito-o.svg"));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
     setLayoutDirection(Qt::LeftToRight);
 
     // WARN!!! Put initialization code below this line. Code above this line is mandatory to be run First
-
 #ifdef Q_OS_WIN
     // Hack to force Iaito load internet connection related DLL's
     QSslSocket s;
@@ -91,7 +94,6 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
         qWarning() << "Cannot load Incosolata-Regular font.";
     }
 
-
     // Set QString codec to UTF-8
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
@@ -101,7 +103,8 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
 #endif
 #endif
     if (!parseCommandLineOptions()) {
-        std::exit(1);
+	    QCoreApplication::exit();
+        // std::exit(1);
     }
 
     if (!versionCheck ()) {
@@ -115,7 +118,8 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
                         QObject::tr("The version used to compile Iaito (%1) does not match the binary version of radare2 (%2). This could result in unexpected behaviour. Are you sure you want to continue?")).arg(
                         localVersion, r2version));
         if (msg.exec() == QMessageBox::No) {
-            std::exit(1);
+	    QCoreApplication::exit();
+            // std::exit(1);
         }
     }
 
@@ -135,7 +139,7 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
     Core()->initialize(clOptions.enableR2Plugins);
     Core()->setSettings();
     Config()->loadInitial();
-    Core()->loadIaitoRC();
+    Core()->loadIaitoRC(0);
 
     Config()->setOutputRedirectionEnabled(clOptions.outputRedirectionEnabled);
 
@@ -148,8 +152,14 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
     if (R2DecDecompiler::isAvailable()) {
         Core()->registerDecompiler(new R2DecDecompiler(Core()));
     }
+    if (R2DecaiDecompiler::isAvailable()) {
+        Core()->registerDecompiler(new R2DecaiDecompiler(Core()));
+    }
     if (R2GhidraCmdDecompiler::isAvailable()) {
         Core()->registerDecompiler(new R2GhidraCmdDecompiler(Core()));
+    }
+    if (R2AnotesDecompiler::isAvailable()) {
+        Core()->registerDecompiler(new R2AnotesDecompiler(Core()));
     }
 
 #if IAITO_R2GHIDRA_STATIC
@@ -170,10 +180,14 @@ IaitoApplication::IaitoApplication(int &argc, char **argv) : QApplication(argc, 
     setStyle(new IaitoProxyStyle());
 #endif // QT_VERSION_CHECK(5, 10, 0) < QT_VERSION
 
-    if (clOptions.args.empty()) {
+    RCore *kore = iaitoPluginCore();
+    if (kore) {
+        mainWindow->openCurrentCore(clOptions.fileOpenOptions, false);
+    } else if (clOptions.args.empty()) {
         // check if this is the first execution of Iaito in this computer
         // Note: the execution after the preferences been reset, will be considered as first-execution
         if (Config()->isFirstExecution()) {
+		// TODO: add cmdline flag to show the welcome dialog
             mainWindow->displayWelcomeDialog();
         }
         mainWindow->displayNewFileDialog();
@@ -251,27 +265,34 @@ void IaitoApplication::launchNewInstance(const QStringList &args)
     process.startDetached(qApp->applicationFilePath(), allArgs);
 }
 
-bool IaitoApplication::event(QEvent *e)
-{
-    if (e->type() == QEvent::FileOpen) {
-        QFileOpenEvent *openEvent = static_cast<QFileOpenEvent *>(e);
-        if (openEvent) {
-            if (m_FileAlreadyDropped) {
-                // We already dropped a file in macOS, let's spawn another instance
-                // (Like the File -> Open)
-                QString fileName = openEvent->file();
-                launchNewInstance({fileName});
-            } else {
-                QString fileName = openEvent->file();
-                m_FileAlreadyDropped = true;
-                mainWindow->closeNewFileDialog();
-                InitialOptions options;
-                options.filename = fileName;
-                mainWindow->openNewFile(options);
-            }
-        }
-    }
-    return QApplication::event(e);
+bool IaitoApplication::event(QEvent *e) {
+	if (e->type() == QEvent::FileOpen) {
+		RCore *kore = iaitoPluginCore();
+		if (kore) {
+			return false;
+		}
+		QFileOpenEvent *openEvent = static_cast<QFileOpenEvent *>(e);
+		if (openEvent) {
+			if (m_FileAlreadyDropped) {
+				// We already dropped a file in macOS, let's spawn another instance
+				// (Like the File -> Open)
+				QString fileName = openEvent->file();
+				launchNewInstance({fileName});
+			} else {
+				QString fileName = openEvent->file();
+				// eprintf ("FILE %s\n", fileName.toStdString().c_str());
+				if (fileName == "") {
+					return false;
+				}
+				m_FileAlreadyDropped = true;
+				mainWindow->closeNewFileDialog();
+				InitialOptions options;
+				options.filename = fileName;
+				mainWindow->openNewFile(options);
+			}
+		}
+	}
+	return QApplication::event(e);
 }
 
 bool IaitoApplication::loadTranslations()
@@ -406,9 +427,9 @@ bool IaitoApplication::parseCommandLineOptions()
         bool analLevelSpecified = false;
         int analLevel = cmd_parser.value(analOption).toInt(&analLevelSpecified);
 
-        if (!analLevelSpecified || analLevel < 0 || analLevel > 2) {
+        if (!analLevelSpecified || analLevel < 0 || analLevel > 3) {
             fprintf(stderr, "%s\n",
-                    QObject::tr("Invalid Analysis Level. May be a value between 0 and 2.").toLocal8Bit().constData());
+                    QObject::tr("Invalid Analysis Level. May be a value between 0 and 3.").toLocal8Bit().constData());
             return false;
         }
         switch (analLevel) {
@@ -420,6 +441,9 @@ bool IaitoApplication::parseCommandLineOptions()
             break;
         case 2:
             opts.analLevel = AutomaticAnalysisLevel::AAAA;
+            break;
+        case 3:
+            opts.analLevel = AutomaticAnalysisLevel::AAAAA;
             break;
         }
     }
@@ -451,7 +475,10 @@ bool IaitoApplication::parseCommandLineOptions()
             opts.fileOpenOptions.analCmd = { {"aaa", "Auto analysis"} };
             break;
         case AutomaticAnalysisLevel::AAAA:
-            opts.fileOpenOptions.analCmd = { {"aaaa", "Auto analysis (experimental)"} };
+            opts.fileOpenOptions.analCmd = { {"aaaa", "Advanced analysis"} };
+            break;
+        case AutomaticAnalysisLevel::AAAAA:
+            opts.fileOpenOptions.analCmd = { {"aaaaa", "Auto analysis (experimental)"} };
             break;
         }
         opts.fileOpenOptions.script = cmd_parser.value(scriptOption);

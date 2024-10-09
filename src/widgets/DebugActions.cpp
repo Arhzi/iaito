@@ -4,13 +4,18 @@
 #include "dialogs/NativeDebugDialog.h"
 #include "common/Configuration.h"
 #include "common/Helpers.h"
+#include "common/TextEditDialog.h"
 
 #include <QPainter>
+#include <QTextEdit>
 #include <QMenu>
 #include <QList>
 #include <QFileInfo>
 #include <QToolBar>
 #include <QToolButton>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QDialogButtonBox>
 #include <QSettings>
 
 DebugActions::DebugActions(QToolBar *toolBar, MainWindow *main) :
@@ -48,8 +53,11 @@ DebugActions::DebugActions(QToolBar *toolBar, MainWindow *main) :
     continueLabel = tr("Continue");
     restartDebugLabel = tr("Restart program");
     startDebugLabel = tr("Start debug");
+    rarunProfileLabel = tr("Rarun profile");
 
     // define actions
+    rarunProfile = new QAction(rarunProfileLabel, this);
+
     actionStart = new QAction(startDebugIcon, startDebugLabel, this);
     actionStart->setShortcut(QKeySequence(Qt::Key_F9));
     actionStartEmul = new QAction(startEmulIcon, startEmulLabel, this);
@@ -156,6 +164,7 @@ DebugActions::DebugActions(QToolBar *toolBar, MainWindow *main) :
     });
     connect(actionStep, &QAction::triggered, Core(), &IaitoCore::stepDebug);
     connect(actionStart, &QAction::triggered, this, &DebugActions::startDebug);
+    connect(rarunProfile, &QAction::triggered, this, &DebugActions::editRarunProfile);
 
     connect(actionAttach, &QAction::triggered, this, &DebugActions::attachProcessDialog);
     connect(actionStartRemote, &QAction::triggered, this, &DebugActions::attachRemoteDialog);
@@ -202,6 +211,7 @@ void DebugActions::setButtonVisibleIfMainExists()
     }
 }
 
+// unused
 void DebugActions::showDebugWarning()
 {
     if (!acceptedDebugWarning) {
@@ -253,7 +263,7 @@ void DebugActions::onAttachedRemoteDebugger(bool successfully)
 
 void DebugActions::attachRemoteDialog()
 {
-    showDebugWarning();
+    // showDebugWarning();
 
     if (!remoteDialog) {
         remoteDialog = new RemoteDebugDialog(main);
@@ -275,7 +285,7 @@ void DebugActions::attachRemoteDialog()
 
 void DebugActions::attachProcessDialog()
 {
-    showDebugWarning();
+    // showDebugWarning();
 
     AttachProcDialog dialog(main);
     bool success = false;
@@ -322,7 +332,7 @@ void DebugActions::startDebug()
         return;
     }
 
-    showDebugWarning();
+    // showDebugWarning();
 
     NativeDebugDialog dialog(main);
     dialog.setArgs(Core()->getConfig("dbg.args"));
@@ -374,4 +384,18 @@ void DebugActions::chooseThemeIcons()
     qhelpers::setThemeIcons(kSupportedIconsNames, [](void *obj, const QIcon & icon) {
         static_cast<QAction *>(obj)->setIcon(icon);
     });
+}
+
+void DebugActions::editRarunProfile()
+{
+    QString dbgProfile = Core()->getConfig("dbg.profile");
+    if (dbgProfile.isEmpty()) {
+        // do not hardcode the default rarun2 profile filename
+        dbgProfile = QString("/tmp/profile.r2.txt");
+    }
+    if (openTextEditDialogFromFile(dbgProfile)) {
+        Core()->setConfig("dbg.profile", dbgProfile);
+    } else {
+        R_LOG_ERROR ("Cannot save rarun2 profile");
+    }
 }
