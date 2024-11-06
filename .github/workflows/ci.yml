@@ -1,7 +1,7 @@
 name: iaito CI
 
 env:
-  R2V: 5.9.4
+  R2V: 5.9.6
 
 on:
   push:
@@ -70,7 +70,7 @@ jobs:
         name: iaito-amd64.deb
         path: dist/debian/*/*.deb
   acr-macos-x64:
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v4
       with:
@@ -153,7 +153,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
         python-version: [3.8.x]
         system-deps: [true]
         cc-override: [default]

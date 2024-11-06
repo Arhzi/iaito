@@ -4,8 +4,9 @@ TARGET = iaito
 
 IAITO_VERSION_MAJOR = 5
 IAITO_VERSION_MINOR = 9
-IAITO_VERSION_PATCH = 4
+IAITO_VERSION_PATCH = 6
 
+CONFIG += c++20
 CONFIG+=app_bundle
 # LIBS+= -dead_strip
 
@@ -33,10 +34,10 @@ lessThan(QT_MAJOR_VERSION, 5): error("requires Qt 5")
 # Doesnt build for Qt6 yet... but will do soon
 
 # Icon for OS X
-ICON = img/iaito-o.icns
+ICON = img/iaito.icns
 
 # Icon/resources for Windows
-win32: RC_ICONS = img/iaito-o.ico
+win32: RC_ICONS = img/iaito.ico
 
 QT += core gui widgets svg network
 QT_CONFIG -= no-pkg-config
@@ -113,7 +114,7 @@ win32 {
 }
 
 macx {
-    QMAKE_CXXFLAGS += -mmacosx-version-min=10.7 -std=c++17 -stdlib=libc++ -g
+    QMAKE_CXXFLAGS += -mmacosx-version-min=10.7 -std=c++20 -stdlib=libc++ -g
     QMAKE_TARGET_BUNDLE_PREFIX = org.radare
     QMAKE_BUNDLE = iaito
     QMAKE_INFO_PLIST = macos/Info.plist
@@ -331,9 +332,11 @@ SOURCES += \
     common/Highlighter.cpp \
     common/MdHighlighter.cpp \
     common/DirectionalComboBox.cpp \
-    dialogs/preferences/AsmOptionsWidget.cpp \
-    dialogs/NewFileDialog.cpp \
+    common/TypeScriptHighlighter.cpp \
     common/AnalTask.cpp \
+    dialogs/preferences/AsmOptionsWidget.cpp \
+    dialogs/FortuneDialog.cpp \
+    dialogs/NewFileDialog.cpp \
     widgets/CommentsWidget.cpp \
     widgets/ConsoleWidget.cpp \
     widgets/Dashboard.cpp \
@@ -342,6 +345,7 @@ SOURCES += \
     widgets/FlagsWidget.cpp \
     widgets/FunctionsWidget.cpp \
     widgets/ImportsWidget.cpp \
+    widgets/CodeEditor.cpp \
     widgets/Omnibar.cpp \
     widgets/RelocsWidget.cpp \
     widgets/SectionsWidget.cpp \
@@ -476,6 +480,13 @@ HEADERS  += \
     widgets/OverviewView.h \
     common/RichTextPainter.h \
     common/CachedFontMetrics.h \
+    common/TypeScriptHighlighter.h \
+    common/Helpers.h \
+    common/TextEditDialog.h \
+    common/Highlighter.h \
+    common/MdHighlighter.h \
+    common/DirectionalComboBox.h \
+    common/AnalTask.h \
     dialogs/AboutDialog.h \
     dialogs/preferences/AsmOptionsWidget.h \
     dialogs/CommentsDialog.h \
@@ -484,15 +495,9 @@ HEADERS  += \
     dialogs/RemoteDebugDialog.h \
     dialogs/NativeDebugDialog.h \
     dialogs/XrefsDialog.h \
-    common/Helpers.h \
     core/MainWindow.h \
-    common/TextEditDialog.h \
-    common/Highlighter.h \
-    common/MdHighlighter.h \
-    common/DirectionalComboBox.h \
     dialogs/InitialOptionsDialog.h \
     dialogs/NewFileDialog.h \
-    common/AnalTask.h \
     widgets/CommentsWidget.h \
     widgets/ConsoleWidget.h \
     widgets/Dashboard.h \
@@ -503,6 +508,7 @@ HEADERS  += \
     widgets/ImportsWidget.h \
     widgets/Omnibar.h \
     widgets/RelocsWidget.h \
+    widgets/CodeEditor.h \
     widgets/SectionsWidget.h \
     widgets/SegmentsWidget.h \
     widgets/StringsWidget.h \
@@ -550,6 +556,7 @@ HEADERS  += \
     widgets/ThreadsWidget.h \
     widgets/ProcessesWidget.h \
     widgets/BacktraceWidget.h \
+    dialogs/FortuneDialog.h \
     dialogs/MapFileDialog.h \
     common/StringsTask.h \
     common/FunctionsTask.h \

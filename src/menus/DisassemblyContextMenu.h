@@ -1,10 +1,11 @@
 #ifndef DISASSEMBLYCONTEXTMENU_H
 #define DISASSEMBLYCONTEXTMENU_H
 
-#include "core/Iaito.h"
 #include "common/IOModesController.h"
-#include <QMenu>
+#include "common/TextEditDialog.h"
+#include "core/Iaito.h"
 #include <QKeySequence>
+#include <QMenu>
 
 class MainWindow;
 
@@ -59,6 +60,7 @@ private slots:
     void on_actionAdvancedBreakpoint_triggered();
     void on_actionContinueUntil_triggered();
     void on_actionSetPC_triggered();
+    void on_actionEditAnnotation_triggered();
 
     void on_actionSetToCode_triggered();
     void on_actionSetAsString_triggered();
@@ -104,7 +106,6 @@ private:
      * @return the shortcut key for "Link Type to Address" option
      */
     QKeySequence getLinkTypeSequence() const;
-
 
     RVA offset;
     bool canCopy;
@@ -171,6 +172,7 @@ private:
     QMenu *debugMenu;
     QAction actionContinueUntil;
     QAction actionSetPC;
+    QAction actionEditAnnotation;
 
     QMenu *breakpointMenu;
     QAction actionAddBreakpoint;
@@ -192,7 +194,7 @@ private:
     QAction actionSetToDataQword;
 
     QAction showInSubmenu;
-    QList<QAction*> showTargetMenuActions;
+    QList<QAction *> showTargetMenuActions;
     QMenu *pluginMenu = nullptr;
     QAction *pluginActionMenuAction = nullptr;
 
@@ -224,38 +226,37 @@ private:
         RENAME_LOCAL,
         RENAME_DO_NOTHING,
     };
-    struct DoRenameInfo {
+    struct DoRenameInfo
+    {
         ut64 addr;
         QString name;
     };
     DoRenameAction doRenameAction = RENAME_DO_NOTHING;
-    DoRenameInfo doRenameInfo = { };
+    DoRenameInfo doRenameInfo = {};
 
     /*
      * @brief Setups up the "Rename" option in the context menu
      *
-     * This function takes into account cursor location so it can choose between current address and pointed value
-     * i.e. `0x000040f3  lea rdi, [0x000199b1]` -> does the user want to add a flag at 0x40f3 or at 0x199b1?
-     * and for that we will rely on |curHighlightedWord| which is the currently selected word.
+     * This function takes into account cursor location so it can choose between
+     * current address and pointed value i.e. `0x000040f3  lea rdi,
+     * [0x000199b1]` -> does the user want to add a flag at 0x40f3 or at
+     * 0x199b1? and for that we will rely on |curHighlightedWord| which is the
+     * currently selected word.
      */
     void setupRenaming();
 
     /**
      * @brief Checks if the currently highlighted word in the disassembly widget
      * is a local variable or function paramter.
-     * @return Return true if the highlighted word is the name of a local variable or function parameter,
-     * return false otherwise.
+     * @return Return true if the highlighted word is the name of a local
+     * variable or function parameter, return false otherwise.
      */
     bool isHighlightedWordLocalVar();
-    struct ThingUsedHere {
+    struct ThingUsedHere
+    {
         QString name;
         RVA offset;
-        enum class Type {
-            Var,
-            Function,
-            Flag,
-            Address
-        };
+        enum class Type { Var, Function, Flag, Address };
         Type type;
     };
     QVector<ThingUsedHere> getThingUsedHere(RVA offset);
@@ -267,13 +268,14 @@ private:
     ThingUsedHere getThingAt(ut64 address);
 
     /*
-     * @brief This function will set the text for the renaming menu given a ThingUsedHere
-     * and provide information on how to handle the renaming of this specific thing.
-     * Indeed, selected dialogs are different when it comes to adding a flag, renaming an existing function,
-     * renaming a local variable...
+     * @brief This function will set the text for the renaming menu given a
+     * ThingUsedHere and provide information on how to handle the renaming of
+     * this specific thing. Indeed, selected dialogs are different when it comes
+     * to adding a flag, renaming an existing function, renaming a local
+     * variable...
      *
      * This function handles every possible object.
      */
-    void buildRenameMenu(ThingUsedHere* tuh);
+    void buildRenameMenu(ThingUsedHere *tuh);
 };
 #endif // DISASSEMBLYCONTEXTMENU_H

@@ -9,7 +9,6 @@
         <file>img/icons/sidebar.svg</file>
         <file>img/icons/undo.svg</file>
         <file>img/icons/redo.svg</file>
-        <file>img/r2.svg</file>
         <file>img/icons/equalizer.svg</file>
         <file>img/icons/cog.svg</file>
         <file alias="lock">img/icons/lock.svg</file>
@@ -91,8 +90,6 @@
         <file>fonts/AnonymousPro.ttf</file>
         <file>fonts/AgaveRegular.ttf</file>
         <file>fonts/InconsolataRegular.ttf</file>
-        <file>img/cutter_plain.svg</file>
-        <file>img/cutter_white_plain.svg</file>
         <file>img/iaito-o.svg</file>
         <file>img/iaito-o-light.svg</file>
         <file>img/iaito.svg</file>
