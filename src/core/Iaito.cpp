@@ -26,10 +26,15 @@
 #include <r_cmd.h>
 #include <r_core.h>
 
-#if R2_VERSION_NUMBER >= 50809 // reverse compatability
+#if R2_VERSION_NUMBER >= 50809
 #define BO bo
 #else
 #define BO o
+#endif
+#if R2_VERSION_NUMBER >= 50909
+#define ADDRESS_OF(x) (x)->addr
+#else
+#define ADDRESS_OF(x) (x)->offset
 #endif
 
 Q_GLOBAL_STATIC(IaitoCore, uniqueInstance)
@@ -217,8 +222,9 @@ void IaitoCore::initialize(bool loadPlugins)
 	// Executable is in appdir/bin
 	prefix.cdUp();
 	qInfo() << "Setting r2 prefix =" << prefix.absolutePath() << " for AppImage.";
-#else // MACOS_R2_BUNDLED \
-      // Executable is in Contents/MacOS, prefix is Contents/Resources/r2
+#else
+	// MACOS_R2_BUNDLED
+	// Executable is in Contents/MacOS, prefix is Contents/Resources/r2
 	prefix.cdUp();
 	prefix.cd("Resources");
 	prefix.cd("r2");
@@ -408,13 +414,13 @@ QString IaitoCore::cmdHtml(const char *str)
 {
     CORE_LOCK();
 
-    RVA offset = core->offset;
+    RVA offset = ADDRESS_OF (core);
     r_core_cmd0(core, "e scr.html=true;e scr.color=2");
     char *res = r_core_cmd_str(core, str);
     r_core_cmd0(core, "e scr.html=false;e scr.color=0");
     QString o = fromOwnedCharPtr(res);
 
-    if (offset != core->offset) {
+    if (offset != ADDRESS_OF (core)) {
         updateSeek();
     }
     return o;
@@ -424,11 +430,11 @@ QString IaitoCore::cmd(const char *str)
 {
     CORE_LOCK();
 
-    RVA offset = core->offset;
+    RVA offset = ADDRESS_OF (core);
     char *res = r_core_cmd_str(core, str);
     QString o = fromOwnedCharPtr(res);
 
-    if (offset != core->offset) {
+    if (offset != ADDRESS_OF (core)) {
         updateSeek();
     }
     return o;
@@ -489,13 +495,13 @@ bool IaitoCore::asyncCmd(const char *str, QSharedPointer<R2Task> &task)
 
     CORE_LOCK();
 
-    RVA offset = core->offset;
+    RVA offset = ADDRESS_OF (core);
 
     task = QSharedPointer<R2Task>(new R2Task(str, true));
     connect(task.data(), &R2Task::finished, task.data(), [this, offset, task]() {
         CORE_LOCK();
 
-        if (offset != core->offset) {
+        if (offset != ADDRESS_OF (core)) {
             updateSeek();
         }
     });
@@ -990,7 +996,7 @@ void IaitoCore::seek(ut64 offset)
 
     // use cmd and not cmdRaw to make sure seekChanged is emitted
     cmd(QStringLiteral("s %1").arg(offset));
-    // cmd already does emit seekChanged(core_->offset);
+    // cmd already does emit seekChanged(core_->addr);
 }
 
 void IaitoCore::showMemoryWidget()
@@ -1069,7 +1075,7 @@ RVA IaitoCore::nextOpAddr(RVA startAddr, int count)
 
 RVA IaitoCore::getOffset()
 {
-    return core_->offset;
+    return ADDRESS_OF (core_);
 }
 
 ut64 IaitoCore::math(const QString &expr)
@@ -2862,7 +2868,11 @@ QList<ImportDescription> IaitoCore::getAllImports()
             fi = r_flag_get(core->flags, fname);
         }
         free(fname);
+#if R2_VERSION_NUMBER >= 50909
+        ut64 addr = fi ? fi->addr : 0;
+#else
         ut64 addr = fi ? fi->offset : 0;
+#endif
         imp.plt = addr;
         imp.name = QString(name);
         imp.bind = QString(bi->bind);

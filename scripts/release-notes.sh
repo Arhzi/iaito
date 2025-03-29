@@ -48,19 +48,25 @@ echo "Commits: $N from `wc -l .A | awk '{print $1}'` contributors"
 echo
 echo "Release builds (binary assets below) are considered work-in-progress, use flatpak or your distro packaging if anything is not working"
 echo
+echo "## macOS"
+echo
+echo "\`\`\`sh"
+echo "sudo xattr -c /Applications/iaito.app"
+echo "sudo codesign --force --deep --sign - /Applications/iaito.app"
+echo "\`\`\`"
+echo
 echo "## Flatpak (WSL / Linux)"
 echo
 echo "\`\`\`sh"
 echo "sudo flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
 echo "sudo flatpak install flathub org.radare.iaito"
-echo "export QT_QPA_PLATFORM=wayland   # only mandatory on windows"
 echo "flatpak run org.radare.iaito"
 echo "\`\`\`"
 echo
 echo "## Build from Source"
 echo
 echo "\`\`\`sh"
-echo "curl -sL https://github.com/radareorg/iaito/releases/download/${VERS}/${VERS}.tar.gz | tar xzv"
+echo "curl -sL https://github.com/radareorg/iaito/archive/refs/tags/${VERS}.tar.gz | tar xzv"
 echo "iaito-${VERS}/sys/install.sh"
 echo "\`\`\`"
 echo

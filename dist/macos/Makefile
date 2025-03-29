@@ -1,12 +1,20 @@
-all:
-	rm -f ../../build/iaito.dmg
-	cd ../../build && macdeployqt iaito.app -dmg && cp -f iaito.dmg ../dist/macos
+.PHONY: all app clean
 
-app:
-	$(SHELL) make-macos-app.sh
+all: app iaito.dmg
 
-pkg:
-	$(SHELL) make-macos-pkg.sh
+app: ../../build/iaito.app
+	mkdir disk
+	cp -a ../../build/iaito.app disk/
+	macdeployqt disk/iaito.app -verbose=2
+
+iaito.dmg: app
+	cp doc/README.txt disk/READ_THIS_FIRST.txt
+	ln -fs /Applications disk/
+	hdiutil create -format UDZO -fs APFS -volname iaito -srcfolder disk iaito
+
+../../build/iaito.app:
+	echo "Building iaito..."
+	$(MAKE) -C ../..
 
 clean:
-	rm -rf macos-pkg tmp
+	rm -rf disk iaito.dmg
